@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from gym_simple_minigrid.minigrid import SimpleMiniGridEnv
 
 from .rl_algs.sac import SACStateGoal
@@ -10,9 +11,9 @@ class HighPolicy:
         self.env = env
 
         state_shape = env.observation_space.shape[0]
-        goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0]
+        goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0] + 1 #Tair
         # High agent proposes goals --> action space === goal space
-        action_shape = goal_shape
+        action_shape = state_shape
 
         # Compute action bounds to convert SAC's action in the correct range
         action_low = env.state_goal_mapper(env.observation_space.low)
@@ -22,11 +23,13 @@ class HighPolicy:
         action_bound = (action_high_corrected - action_low) / 2
         action_offset = (action_high_corrected + action_low) / 2
 
+        action_bound = np.concatenate((action_bound, np.array([3])))
+        action_offset = np.concatenate((action_offset, np.array([0])))
         # Init SAC algorithm, base learner for high agent
         self.alg = SACStateGoal(state_shape, action_shape, goal_shape, action_bound, action_offset, gamma, tau)
 
-        self.clip_low = action_low
-        self.clip_high = action_high
+        self.clip_low = np.concatenate((action_low, np.array([0])))
+        self.clip_high = np.concatenate((action_high, np.array([3])))
 
         self.replay_buffer = ReplayBuffer(br_size)
 
