@@ -35,8 +35,8 @@ class Hierarchy:
 
             # Start LRGP
             while True:
-                css = starting_state_list[state_index]  # current_starting_point
-                cgs = starting_state_list[state_index-1]
+                css = starting_state_list[1]  # current_starting_point
+                cgs = starting_state_list[0]
                 # Check if reachable
                 reachable = self.low.is_reachable(css, cgs, epsilon)
 
@@ -47,19 +47,17 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new starting point
-                    new_ss = self.high.select_action(css, cgs)
-
+                    new_ss = self.high.select_action(css, self.env.state_goal_mapper(cgs))
+                    new_ss_loc = self.env.state_goal_mapper(new_ss)
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
-                    if not self.low.is_allowed(new_ss, epsilon) or \
-                            np.array_equal(new_ss, cgs) or \
-                            np.array_equal(new_ss, self.env.state_goal_mapper(css)):
+                    if not self.low.is_allowed(new_ss_loc, epsilon) or \
+                            np.array_equal(new_ss_loc, cgs) or \
+                            np.array_equal(new_ss_loc, self.env.state_goal_mapper(css)):
                         self.high.add_penalization((css, new_ss, -high_h, css, cgs, True))  # ns not used
                     else:
                         # Adding the new goal in between cgs ans css
-                        temp = starting_state_list[state_index]
-                        starting_state_list[state_index] = new_ss
-                        starting_state_list.append(temp)
+                        starting_state_list.insert(1, new_ss)
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
@@ -80,7 +78,7 @@ class Hierarchy:
 
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
                         action = self.low.select_action(css, cgs, epsilon)
-                        next_state, reward, done, info = self.env.step(action)
+                        next_state, reward, done, info = self.env.step(action, css)
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, cgs)
                         self.low.add_transition((css, action, int(achieved) - 1, next_state, cgs, achieved))
@@ -100,6 +98,10 @@ class Hierarchy:
                         # Max env steps
                         if done and len(info) > 0:
                             max_env_steps = True
+                            break
+
+                        if np.array_equal(css[0:2], cgs):
+                            starting_state_list = starting_state_list[1:]
                             break
 
                     # Run's final state
@@ -122,9 +124,8 @@ class Hierarchy:
                     # Check episode completed successfully
                     # if len(goal_stack) == 0:
                     #     break
-                    if np.array_equal(css[0:2], cgs):
-                        state_index = state_index + 1
-                        break
+
+
 
                     # Check episode completed due to Max Env Steps
                     elif max_env_steps:

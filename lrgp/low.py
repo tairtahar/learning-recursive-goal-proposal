@@ -34,7 +34,7 @@ class LowPolicy:
         if np.random.random() < epsilon:
             action = self.env.action_space.sample()
         else:
-            action = self.alg.select_action(state, goal)
+            action = self.alg.select_action(state, self.env.state_goal_mapper(goal))
         return action
 
     def update(self, n_updates: int, batch_size: int):

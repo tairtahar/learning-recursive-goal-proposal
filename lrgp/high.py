@@ -11,7 +11,7 @@ class HighPolicy:
         self.env = env
 
         state_shape = env.observation_space.shape[0]
-        goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0] + 1 #Tair
+        goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0] #Tair
         # High agent proposes goals --> action space === goal space
         action_shape = state_shape
 
