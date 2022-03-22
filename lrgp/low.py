@@ -14,8 +14,8 @@ class LowPolicy:
 
         state_shape = env.observation_space.shape[0]
         action_dims = env.action_space.n
-        goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0]
-
+        # goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0]
+        goal_shape = state_shape
         # Init DDQN algorithm, base learner for low agent
         self.alg = DDQNStateGoal(state_dim=state_shape, action_dim=action_dims, goal_dim=goal_shape,
                                  gamma=gamma, tau=tau, hidden_dims=(256, 256))
@@ -34,7 +34,7 @@ class LowPolicy:
         if np.random.random() < epsilon:
             action = self.env.action_space.sample()
         else:
-            action = self.alg.select_action(state, self.env.state_goal_mapper(goal))
+            action = self.alg.select_action(state, goal)  # state_goal_mapper
         return action
 
     def update(self, n_updates: int, batch_size: int):

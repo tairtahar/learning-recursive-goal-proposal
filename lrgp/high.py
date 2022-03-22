@@ -11,9 +11,10 @@ class HighPolicy:
         self.env = env
 
         state_shape = env.observation_space.shape[0]
-        goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0] #Tair
+        # goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0]
+        goal_shape = state_shape
         # High agent proposes goals --> action space === goal space
-        action_shape = state_shape
+        action_shape = state_shape  # Tair
 
         # Compute action bounds to convert SAC's action in the correct range
         action_low = env.state_goal_mapper(env.observation_space.low)
@@ -79,7 +80,8 @@ class HighPolicy:
                 hindsight_goal_3 = self.env.state_goal_mapper(next_state_3)
                 for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
                     # Used as intermediate goal or proposed action
-                    hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
+                    # hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
+                    hindsight_goal_2 = next_state_2
                     self.replay_buffer.add(state_1,             # state
                                            hindsight_goal_2,    # action <-> proposed goal
                                            -(j - i + 1),        # reward <-> - N runs

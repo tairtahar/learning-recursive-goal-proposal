@@ -47,12 +47,12 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new starting point
-                    new_ss = self.high.select_action(css, self.env.state_goal_mapper(cgs))
+                    new_ss = self.high.select_action(css, cgs)
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
                     if not self.low.is_allowed(new_ss_loc, epsilon) or \
-                            np.array_equal(new_ss_loc, cgs) or \
+                            np.array_equal(new_ss_loc, self.env.state_goal_mapper(cgs)) or \
                             np.array_equal(new_ss_loc, self.env.state_goal_mapper(css)):
                         self.high.add_penalization((css, new_ss, -high_h, css, cgs, True))  # ns not used
                     else:
@@ -80,7 +80,7 @@ class Hierarchy:
                         action = self.low.select_action(css, cgs, epsilon)
                         next_state, reward, done, info = self.env.step(action, css)
                         # Check if last subgoal is achieved (not episode's goal)
-                        achieved = self._goal_achived(next_state, cgs)
+                        achieved = self._goal_achived(next_state, self.env.state_goal_mapper(cgs))
                         self.low.add_transition((css, action, int(achieved) - 1, next_state, cgs, achieved))
 
                         css = next_state
@@ -100,7 +100,7 @@ class Hierarchy:
                             max_env_steps = True
                             break
 
-                        if np.array_equal(css[0:2], cgs):
+                        if np.array_equal(self.env.state_goal_mapper(css), self.env.state_goal_mapper(cgs)):
                             starting_state_list = starting_state_list[1:]
                             break
 
@@ -108,22 +108,22 @@ class Hierarchy:
                     next_state_high = css
 
                     # Create reachable transitions from run info
-                    self.low.create_reachable_transitions(cgs, achieved)
+                    self.low.create_reachable_transitions(self.env.state_goal_mapper(cgs), achieved)
 
                     # We enforce a goal to be different from current state or previous goal, the agent MUST have moved
                     assert low_steps != 0
 
                     # Add run info for high agent to create transitions
-                    if not np.array_equal(state_high, next_state_high):
-                        self.high.add_run_info((state_high, cgs, next_state_high))
+                    if not np.array_equal(self.env.state_goal_mapper(state_high), self.env.state_goal_mapper(next_state_high)):
+                        self.high.add_run_info((state_high, self.env.state_goal_mapper(cgs), next_state_high))
 
                     # Update goal stack
                     # while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
                     #     goal_stack.pop()
 
                     # Check episode completed successfully
-                    # if len(goal_stack) == 0:
-                    #     break
+                    if len(starting_state_list) == 1:
+                        break
 
 
 
