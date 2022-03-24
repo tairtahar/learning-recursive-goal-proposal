@@ -31,7 +31,6 @@ class Hierarchy:
             s, g = self.env.reset()
             g = np.concatenate((g, np.array([4]))) #having orientation of 4 means it is the ultimate goal
             starting_state_list = [g, s]
-            state_index = 1
 
             # Start LRGP
             while True:
@@ -80,7 +79,7 @@ class Hierarchy:
                         action = self.low.select_action(css, cgs, epsilon)
                         next_state, reward, done, info = self.env.step(action, css)
                         # Check if last subgoal is achieved (not episode's goal)
-                        achieved = self._goal_achived(next_state, self.env.state_goal_mapper(cgs))
+                        achieved = self._goal_achived(next_state, cgs)
                         self.low.add_transition((css, action, int(achieved) - 1, next_state, cgs, achieved))
 
                         css = next_state
@@ -173,14 +172,16 @@ class Hierarchy:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
-            goal_stack = [ep_goal]
+            ep_goal = np.concatenate((ep_goal, np.array([4])))
+            starting_state_list = [ep_goal, state]
 
             # Start LRGP
             while True:
-                goal = goal_stack[-1]
+                css = starting_state_list[1]  # current_starting_point
+                cgs = starting_state_list[0]
 
                 # Check if reachable
-                reachable = self.low.is_reachable(state, goal, 0)
+                reachable = self.low.is_reachable(css, cgs, 0)
 
                 if not reachable:
                     # Check if more proposals available
@@ -190,32 +191,33 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new subgoal
-                    new_goal = self.high.select_action_test(state, goal, add_noise)
+                    new_ss = self.high.select_action(css, cgs)
+                    new_ss_loc = self.env.state_goal_mapper(new_ss)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(new_goal, 0):
+                    if not self.low.is_allowed(new_ss_loc, 0):
                         add_noise = True
                     else:
-                        goal_stack.append(new_goal)
+                        starting_state_list.insert(1, new_ss)
                         add_noise = False
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
                     # Store run's initial state
-                    state_high = state
+                    state_high = css
 
                     # Init run variables
-                    achieved = self._goal_achived(state, goal)
+                    achieved = self._goal_achived(css, cgs)
                     low_fwd = 0
                     low_steps = 0
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
-                        action = self.low.select_action(state, goal, 0)
+                        action = self.low.select_action(css, cgs, 0)
                         next_state, reward, done, info = self.env.step(action)
-                        achieved = self._goal_achived(next_state, goal)
+                        achieved = self._goal_achived(next_state, cgs)
 
-                        state = next_state
+                        css = next_state
 
                         # Don't count turns
                         if action == SimpleMiniGridEnv.Actions.forward:
@@ -224,13 +226,17 @@ class Hierarchy:
                         low_steps += 1
                         low_steps_ep += 1  # To log performance
 
+                        if achieved:
+                            starting_state_list = starting_state_list[1:]
+                            break
+
                         # Max env steps
                         if done and len(info) > 0:
                             max_env_steps = True
                             break
 
                     # Run's final state
-                    next_state_high = state
+                    next_state_high = css
 
                     log_low_success.append(achieved)
 
@@ -239,7 +245,7 @@ class Hierarchy:
                     #     goal_stack.pop()
 
                     # Check episode completed successfully
-                    if len(goal_stack) == 0:
+                    if len(starting_state_list) == 1:
                         break
 
                     # Check episode completed due to bad low policy
@@ -397,7 +403,7 @@ class Hierarchy:
                np.array(log_low_success).mean()
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
-        return np.array_equal(self.env.state_goal_mapper(state), goal)
+        return np.array_equal(self.env.state_goal_mapper(state), self.env.state_goal_mapper(goal))
 
     def save(self, path: str):
         if not os.path.exists(path):
