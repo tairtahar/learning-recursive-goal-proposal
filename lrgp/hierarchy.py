@@ -37,7 +37,7 @@ class Hierarchy:
                 css = starting_state_list[1]  # current_starting_point
                 cgs = starting_state_list[0]
                 # Check if reachable
-                reachable = self.low.is_reachable(css, cgs, epsilon)
+                reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), epsilon)
 
                 if not reachable:
                     # Check if more proposals available
@@ -77,7 +77,7 @@ class Hierarchy:
 
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
                         action = self.low.select_action(css, cgs, epsilon)
-                        next_state, reward, done, info = self.env.step(action, css)
+                        next_state, reward, done, info = self.env.step(action, True, css)
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, cgs)
                         self.low.add_transition((css, action, int(achieved) - 1, next_state, cgs, achieved))
@@ -103,6 +103,8 @@ class Hierarchy:
                             starting_state_list = starting_state_list[1:]
                             break
 
+
+
                     # Run's final state
                     next_state_high = css
 
@@ -120,15 +122,16 @@ class Hierarchy:
                     # while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
                     #     goal_stack.pop()
 
-                    # Check episode completed successfully
-                    if len(starting_state_list) == 1:
-                        break
+                # Check episode completed successfully
+                if len(starting_state_list) == 1:
+                    break
+
+                # Check episode completed due to Max Env Steps
+                if max_env_steps:
+                    break
 
 
 
-                    # Check episode completed due to Max Env Steps
-                    elif max_env_steps:
-                        break
 
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
             self.high.on_episode_end()
@@ -181,7 +184,7 @@ class Hierarchy:
                 cgs = starting_state_list[0]
 
                 # Check if reachable
-                reachable = self.low.is_reachable(css, cgs, 0)
+                reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), 0)
 
                 if not reachable:
                     # Check if more proposals available
@@ -214,7 +217,7 @@ class Hierarchy:
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
                         action = self.low.select_action(css, cgs, 0)
-                        next_state, reward, done, info = self.env.step(action)
+                        next_state, reward, done, info = self.env.step(action, True, css)
                         achieved = self._goal_achived(next_state, cgs)
 
                         css = next_state
@@ -226,7 +229,7 @@ class Hierarchy:
                         low_steps += 1
                         low_steps_ep += 1  # To log performance
 
-                        if achieved:
+                        if np.array_equal(self.env.state_goal_mapper(css), self.env.state_goal_mapper(cgs)):
                             starting_state_list = starting_state_list[1:]
                             break
 
@@ -303,7 +306,7 @@ class Hierarchy:
                 goal = goal_stack[-1]
 
                 # Check if reachable
-                reachable = self.low.is_reachable(state, goal, 0)
+                reachable = self.low.is_reachable(state, self.env.state_goal_mapper(goal), 0)
 
                 if not reachable:
                     # Check if more proposals available

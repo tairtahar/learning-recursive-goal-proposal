@@ -28,6 +28,8 @@ parser.add_argument('--epsilon_max', type=float, default=0.65, help='Maximum exp
 parser.add_argument('--epsilon_min', type=float, default=0.1, help='Minimum exploration probability for e-greedy '
                                                                     'policy')
 parser.add_argument('--epsilon_decay', type=float, default=0.9994, help='Decay for epsilon')
+parser.add_argument('--render', action='store_true', help='Visualize the agent\'s learned policy')
+
 
 args = parser.parse_args()
 args = vars(args)
