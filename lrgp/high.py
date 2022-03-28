@@ -12,7 +12,7 @@ class HighPolicy:
 
         state_shape = env.observation_space.shape[0]
         # goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0]
-        goal_shape = state_shape
+        goal_shape = state_shape-1
         # High agent proposes goals --> action space === goal space
         action_shape = state_shape  # Tair
 
@@ -24,8 +24,8 @@ class HighPolicy:
         action_bound = (action_high_corrected - action_low) / 2
         action_offset = (action_high_corrected + action_low) / 2
 
-        action_bound = np.concatenate((action_bound, np.array([3])))
-        action_offset = np.concatenate((action_offset, np.array([0])))
+        action_bound = np.concatenate((action_bound, np.array([2])))
+        action_offset = np.concatenate((action_offset, np.array([2])))
         # Init SAC algorithm, base learner for high agent
         self.alg = SACStateGoal(state_shape, action_shape, goal_shape, action_bound, action_offset, gamma, tau)
 
@@ -77,7 +77,7 @@ class HighPolicy:
         for i, (state_1, _, next_state_1) in enumerate(self.episode_runs):
             for j, (_, _, next_state_3) in enumerate(self.episode_runs[i + 1:], i + 1):
                 # Used as final goal
-                hindsight_goal_3 = next_state_3
+                hindsight_goal_3 = self.env.state_goal_mapper(next_state_3)
                 for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
                     # Used as intermediate goal or proposed action
                     # hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
