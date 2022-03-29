@@ -15,10 +15,13 @@ class Hierarchy:
         self.high = HighPolicy(env)
 
         self.logs = list()
+        self.keep_goal = None
+
 
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, render: bool, **kwargs):
-
+        s, g = self.env.reset()
+        self.keep_goal = g
         for episode in range(n_episodes):
             # Noise and epsilon for this episode
             epsilon = epsilon_f(episode)
@@ -29,7 +32,9 @@ class Hierarchy:
 
             # Generate env initialization
             s, g = self.env.reset()
-            g = np.concatenate((g, np.array([4]))) #having orientation of 4 means it is the ultimate goal
+            g = self.keep_goal
+            self.env.manual_goal(self.keep_goal)
+            g = np.concatenate((g, np.array([3]))) #having orientation of 4 means it is the ultimate goal
             starting_state_list = [g, s]
 
             # Start LRGP
@@ -38,7 +43,8 @@ class Hierarchy:
                 cgs = starting_state_list[0]
                 # Check if reachable
                 reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), epsilon)
-
+                if np.array_equal(self.env.state_goal_mapper(css), self.env.state_goal_mapper(cgs)):
+                    break
                 if not reachable:
                     # Check if more proposals available
                     subgoals_proposed += 1
@@ -71,7 +77,7 @@ class Hierarchy:
                     # Add state to compute reachable pairs
                     self.low.add_run_step(css)
                     # Add current position as allowed goal to overcome the incomplete goal space problem
-                    self.low.add_allowed_goal(self.env.state_goal_mapper(css))
+                    # self.low.add_allowed_goal(self.env.state_goal_mapper(css))
 
                     # Apply steps
 
@@ -101,6 +107,10 @@ class Hierarchy:
 
                         if np.array_equal(self.env.state_goal_mapper(css), self.env.state_goal_mapper(cgs)):
                             starting_state_list = starting_state_list[1:]
+                            if len(starting_state_list) == 1:
+                                break
+                            css = starting_state_list[1]  # current_starting_point
+                            cgs = starting_state_list[0]
                             break
 
 
@@ -175,7 +185,9 @@ class Hierarchy:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
-            ep_goal = np.concatenate((ep_goal, np.array([4])))
+            ep_goal = self.keep_goal
+            self.env.manual_goal(self.keep_goal)
+            ep_goal = np.concatenate((ep_goal, np.array([3])))
             starting_state_list = [ep_goal, state]
 
             # Start LRGP
@@ -231,6 +243,10 @@ class Hierarchy:
 
                         if np.array_equal(self.env.state_goal_mapper(css), self.env.state_goal_mapper(cgs)):
                             starting_state_list = starting_state_list[1:]
+                            if len(starting_state_list) == 1:
+                                break
+                            css = starting_state_list[1]  # current_starting_point
+                            cgs = starting_state_list[0]
                             break
 
                         # Max env steps
@@ -298,8 +314,10 @@ class Hierarchy:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
+            ep_goal = self.keep_goal
+            self.env.manual_goal(self.keep_goal)
             self.env.render()
-            ep_goal = np.concatenate((ep_goal, np.array([4])))
+            ep_goal = np.concatenate((ep_goal, np.array([3])))
             starting_state_list = [ep_goal, state]
 
             # Start LRGP
@@ -308,7 +326,7 @@ class Hierarchy:
                 cgs = starting_state_list[0]
 
                 # Check if reachable
-                reachable = self.low.is_reachable(state, self.env.state_goal_mapper(cgs), 0)
+                reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), 0)
 
                 if not reachable:
                     # Check if more proposals available
@@ -362,6 +380,13 @@ class Hierarchy:
 
                         if np.array_equal(self.env.state_goal_mapper(css), self.env.state_goal_mapper(cgs)):
                             starting_state_list = starting_state_list[1:]
+                            if len(starting_state_list) == 1:
+                                break
+                            css = starting_state_list[1]  # current_starting_point
+                            cgs = starting_state_list[0]
+                            self.env.remove_goal()
+                            self.env.add_goal(self.env.state_goal_mapper(starting_state_list[0]))
+                            self.env.render()
                             break
 
                         # Max env steps
