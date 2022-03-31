@@ -100,20 +100,13 @@ class Hierarchy:
                         # Max steps to avoid getting stuck
                         low_steps += 1
 
+                        if achieved:
+                            starting_state_list = starting_state_list[1:]
+
                         # Max env steps
                         if done and len(info) > 0:
                             max_env_steps = True
                             break
-
-                        if np.array_equal(self.env.state_goal_mapper(css), self.env.state_goal_mapper(cgs)):
-                            starting_state_list = starting_state_list[1:]
-                            if len(starting_state_list) == 1:
-                                break
-                            css = starting_state_list[1]  # current_starting_point
-                            cgs = starting_state_list[0]
-                            break
-
-
 
                     # Run's final state
                     next_state_high = css
@@ -139,9 +132,6 @@ class Hierarchy:
                 # Check episode completed due to Max Env Steps
                 if max_env_steps:
                     break
-
-
-
 
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
             self.high.on_episode_end()
@@ -206,7 +196,7 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new starting state
-                    new_ss = self.high.select_action(css, self.env.state_goal_mapper(cgs))
+                    new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
 
                     # If not allowed, add noise to generate an adjacent goal
@@ -241,13 +231,8 @@ class Hierarchy:
                         low_steps += 1
                         low_steps_ep += 1  # To log performance
 
-                        if np.array_equal(self.env.state_goal_mapper(css), self.env.state_goal_mapper(cgs)):
+                        if achieved:
                             starting_state_list = starting_state_list[1:]
-                            if len(starting_state_list) == 1:
-                                break
-                            css = starting_state_list[1]  # current_starting_point
-                            cgs = starting_state_list[0]
-                            break
 
                         # Max env steps
                         if done and len(info) > 0:
@@ -314,16 +299,17 @@ class Hierarchy:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
-            ep_goal = self.keep_goal
-            self.env.manual_goal(self.keep_goal)
-            self.env.render()
+            ep_goal = np.array([10,2])
+            self.env.manual_goal(ep_goal)
             ep_goal = np.concatenate((ep_goal, np.array([3])))
             starting_state_list = [ep_goal, state]
 
             # Start LRGP
             while True:
-                css = starting_state_list[1]  # current_starting_point
                 cgs = starting_state_list[0]
+                if self.env.manual_state(starting_state_list[1]):
+                    css = starting_state_list[1] # current_starting_point
+                self.env.render()
 
                 # Check if reachable
                 reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), 0)
@@ -336,7 +322,7 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new starting state
-                    new_ss = self.high.select_action(css, self.env.state_goal_mapper(cgs))
+                    new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
 
                     # If not allowed, add noise to generate an adjacent goal
