@@ -20,8 +20,8 @@ class Hierarchy:
 
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, render: bool, **kwargs):
-        s, g = self.env.reset()
-        self.keep_goal = g
+        # s, g = self.env.reset()
+        # self.keep_goal = g
         for episode in range(n_episodes):
             # Noise and epsilon for this episode
             epsilon = epsilon_f(episode)
@@ -32,7 +32,8 @@ class Hierarchy:
 
             # Generate env initialization
             s, g = self.env.reset()
-            g = self.keep_goal
+            # g = self.keep_goal
+            self.keep_goal = g
             self.env.manual_goal(self.keep_goal)
             g = np.concatenate((g, np.array([3]))) #having orientation of 4 means it is the ultimate goal
             starting_state_list = [g, s]
@@ -175,8 +176,8 @@ class Hierarchy:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
-            ep_goal = self.keep_goal
-            self.env.manual_goal(self.keep_goal)
+            # ep_goal = self.keep_goal
+            self.env.manual_goal(ep_goal)
             ep_goal = np.concatenate((ep_goal, np.array([3])))
             starting_state_list = [ep_goal, state]
 
@@ -205,6 +206,9 @@ class Hierarchy:
                     else:
                         starting_state_list.insert(1, new_ss)
                         add_noise = False
+
+                    achieved = False
+
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
@@ -299,7 +303,7 @@ class Hierarchy:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
-            ep_goal = np.array([10,2])
+            # ep_goal = np.array([10,2])
             self.env.manual_goal(ep_goal)
             ep_goal = np.concatenate((ep_goal, np.array([3])))
             starting_state_list = [ep_goal, state]
