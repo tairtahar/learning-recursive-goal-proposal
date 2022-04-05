@@ -64,7 +64,6 @@ class HERTransitionCreator:
             next_state = self.original_transitions[future].next_state
             # Convert into goal-space and set as goal for current transition
             t.goal = self.state_goal_mapper(next_state)
-            # t.goal = next_state  # Tair
             # Compute binary reward --> If new goal was achieved in that transition 0, else -1
             t.reward = int(np.array_equal(self.state_goal_mapper(t.next_state), t.goal)) - 1
 

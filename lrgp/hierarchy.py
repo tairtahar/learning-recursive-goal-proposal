@@ -35,7 +35,8 @@ class Hierarchy:
             # g = self.keep_goal
             self.keep_goal = g
             self.env.manual_goal(self.keep_goal)
-            g = np.concatenate((g, np.array([3]))) #having orientation of 4 means it is the ultimate goal
+            # g = np.concatenate((g, np.array([3]))) #having orientation of 4 means it is the ultimate goal
+            g = np.concatenate((g, np.random.randint(0, 3, 1)))
             starting_state_list = [tuple(g), tuple(s)]
 
             # Start LRGP
@@ -190,7 +191,8 @@ class Hierarchy:
             state, ep_goal = self.env.reset()
             # ep_goal = self.keep_goal
             self.env.manual_goal(ep_goal)
-            ep_goal = np.concatenate((ep_goal, np.array([3])))
+
+            ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             starting_state_list = [tuple(ep_goal), tuple(state)]
 
             # Start LRGP
@@ -326,7 +328,7 @@ class Hierarchy:
             state, ep_goal = self.env.reset()
             # ep_goal = np.array([10,2])
             self.env.manual_goal(ep_goal)
-            ep_goal = np.concatenate((ep_goal, np.array([3])))
+            ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             starting_state_list = [tuple(ep_goal), tuple(state)]
 
             # Start LRGP
