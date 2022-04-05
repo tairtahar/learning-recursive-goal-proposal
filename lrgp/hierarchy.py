@@ -57,9 +57,9 @@ class Hierarchy:
                     while True:
                         new_ss = self.high.select_action(css, self.env.state_goal_mapper(cgs))
                         count_proposals += 1
-                        if self.env.check_loc_wall(new_ss):
+                        if not self.env.check_loc_wall(new_ss):
                             break
-                        if count_proposals % 5 == 0:
+                        if count_proposals % 40 == 0:
                             print(str(count_proposals), " bad proposals were given")
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
                     # Bad proposals --> Same state, same goal or forbidden goal
@@ -90,11 +90,11 @@ class Hierarchy:
                     # Apply steps
 
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
-                        action = self.low.select_action(css, cgs, epsilon)
+                        action = self.low.select_action(css, self.env.state_goal_mapper(cgs), epsilon)
                         next_state, reward, done, info = self.env.step(action, True, css)
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, cgs)
-                        self.low.add_transition((css, action, int(achieved) - 1, next_state, cgs, achieved))
+                        self.low.add_transition((css, action, int(achieved) - 1, next_state, self.env.state_goal_mapper(cgs), achieved))
 
                         css = next_state
 
@@ -107,6 +107,11 @@ class Hierarchy:
                             low_fwd += 1
                         # Max steps to avoid getting stuck
                         low_steps += 1
+
+                        if tuple(css) in starting_state_list[2:]:  # meaning the agent advances the other way around (goal to target)
+                            self.high.add_penalization(
+                                (state_high, css, -high_h, css, self.env.state_goal_mapper(cgs), True))  # ns not used
+                            starting_state_list.remove(tuple(css))
 
                         if achieved:
                             starting_state_list = starting_state_list[1:]
@@ -205,6 +210,16 @@ class Hierarchy:
 
                     # Ask for a new starting state
                     new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
+                    count_proposals = 0
+                    while True:
+                        count_proposals += 1
+                        if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in starting_state_list:
+                            break
+                        else:
+                            new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), True)
+                        if count_proposals % 20 == 0:
+                            print(str(count_proposals), " bad proposals were given")
+
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
 
                     # If not allowed, add noise to generate an adjacent goal
@@ -227,7 +242,7 @@ class Hierarchy:
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
-                        action = self.low.select_action(css, cgs, 0)
+                        action = self.low.select_action(css, self.env.state_goal_mapper(cgs), 0)
                         next_state, reward, done, info = self.env.step(action, True, css)
                         achieved = self._goal_achived(next_state, cgs)
 
@@ -244,7 +259,6 @@ class Hierarchy:
                             starting_state_list = starting_state_list[1:]
 
                         # if self.env.state_goal_mapper(cgs) in starting_state_list
-
                         # Max env steps
                         if done and len(info) > 0:
                             max_env_steps = True
@@ -342,7 +356,7 @@ class Hierarchy:
                             break
                         else:
                             new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), True)
-                        if count_proposals % 5 == 0:
+                        if count_proposals % 20 == 0:
                             print(str(count_proposals), " bad proposals were given")
                     # new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
@@ -372,7 +386,7 @@ class Hierarchy:
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
-                        action = self.low.select_action(css, cgs, 0)
+                        action = self.low.select_action(css, self.env.state_goal_mapper(cgs), 0)
                         next_state, reward, done, info = self.env.step(action, True, css)
                         self.env.render()
                         achieved = self._goal_achived(next_state, cgs)

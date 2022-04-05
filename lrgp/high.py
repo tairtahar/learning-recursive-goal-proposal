@@ -52,7 +52,7 @@ class HighPolicy:
         noise = 0
         if add_noise:
             # Add small noise so we choose an adjacent goal position
-            noise = np.random.randint(-1, 2, action.shape)
+            noise = np.random.randint(-2, 2, action.shape)
         action = action + noise
 
         # Discretize and clip
