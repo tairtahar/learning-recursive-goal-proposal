@@ -330,6 +330,7 @@ class Hierarchy:
             self.env.manual_goal(ep_goal)
             ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             starting_state_list = [tuple(ep_goal), tuple(state)]
+            self.env.mark_starting_state(state)
 
             # Start LRGP
             while True:
