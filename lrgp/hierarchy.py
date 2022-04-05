@@ -15,13 +15,11 @@ class Hierarchy:
         self.high = HighPolicy(env)
 
         self.logs = list()
-        self.keep_goal = None
 
 
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, render: bool, **kwargs):
-        # s, g = self.env.reset()
-        # self.keep_goal = g
+
         for episode in range(n_episodes):
             # Noise and epsilon for this episode
             epsilon = epsilon_f(episode)
@@ -32,9 +30,6 @@ class Hierarchy:
 
             # Generate env initialization
             s, g = self.env.reset()
-            # g = self.keep_goal
-            self.keep_goal = g
-            self.env.manual_goal(self.keep_goal)
             # g = np.concatenate((g, np.array([3]))) #having orientation of 4 means it is the ultimate goal
             g = np.concatenate((g, np.random.randint(0, 3, 1)))
             starting_state_list = [tuple(g), tuple(s)]
@@ -45,8 +40,6 @@ class Hierarchy:
                 cgs = starting_state_list[0]
                 # Check if reachable
                 reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), epsilon)
-                if np.array_equal(self.env.state_goal_mapper(css), self.env.state_goal_mapper(cgs)):
-                    break
                 if not reachable:
                     # Check if more proposals available
                     subgoals_proposed += 1
