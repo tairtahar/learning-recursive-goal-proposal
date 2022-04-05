@@ -36,7 +36,7 @@ class Hierarchy:
             self.keep_goal = g
             self.env.manual_goal(self.keep_goal)
             g = np.concatenate((g, np.array([3]))) #having orientation of 4 means it is the ultimate goal
-            starting_state_list = [g, s]
+            starting_state_list = [tuple(g), tuple(s)]
 
             # Start LRGP
             while True:
@@ -53,7 +53,14 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new starting point
-                    new_ss = self.high.select_action(css, self.env.state_goal_mapper(cgs))
+                    count_proposals = 0
+                    while True:
+                        new_ss = self.high.select_action(css, self.env.state_goal_mapper(cgs))
+                        count_proposals += 1
+                        if self.env.check_loc_wall(new_ss):
+                            break
+                        if count_proposals % 5 == 0:
+                            print(str(count_proposals), " bad proposals were given")
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
@@ -63,7 +70,7 @@ class Hierarchy:
                         self.high.add_penalization((css, new_ss, -high_h, css, self.env.state_goal_mapper(cgs), True))  # ns not used
                     else:
                         # Adding the new goal in between cgs ans css
-                        starting_state_list.insert(1, new_ss)
+                        starting_state_list.insert(1, tuple(new_ss))
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
@@ -179,7 +186,7 @@ class Hierarchy:
             # ep_goal = self.keep_goal
             self.env.manual_goal(ep_goal)
             ep_goal = np.concatenate((ep_goal, np.array([3])))
-            starting_state_list = [ep_goal, state]
+            starting_state_list = [tuple(ep_goal), tuple(state)]
 
             # Start LRGP
             while True:
@@ -204,10 +211,8 @@ class Hierarchy:
                     if not self.low.is_allowed(new_ss_loc, 0):
                         add_noise = True
                     else:
-                        starting_state_list.insert(1, new_ss)
+                        starting_state_list.insert(1, tuple(new_ss))
                         add_noise = False
-
-                    achieved = False
 
 
                 else:
@@ -237,6 +242,8 @@ class Hierarchy:
 
                         if achieved:
                             starting_state_list = starting_state_list[1:]
+
+                        # if self.env.state_goal_mapper(cgs) in starting_state_list
 
                         # Max env steps
                         if done and len(info) > 0:
@@ -306,10 +313,11 @@ class Hierarchy:
             # ep_goal = np.array([10,2])
             self.env.manual_goal(ep_goal)
             ep_goal = np.concatenate((ep_goal, np.array([3])))
-            starting_state_list = [ep_goal, state]
+            starting_state_list = [tuple(ep_goal), tuple(state)]
 
             # Start LRGP
             while True:
+                # css = starting_state_list[1]  # current_starting_point
                 cgs = starting_state_list[0]
                 if self.env.manual_state(starting_state_list[1]):
                     css = starting_state_list[1] # current_starting_point
@@ -326,6 +334,14 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new starting state
+                    count_proposals = 0
+                    while True:
+                        new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
+                        count_proposals += 1
+                        if (self.env.check_loc_wall(new_ss) and new_ss not in starting_state_list):
+                            break
+                        if count_proposals % 5 == 0:
+                            print(str(count_proposals), " bad proposals were given")
                     new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
 
@@ -337,7 +353,7 @@ class Hierarchy:
                         self.env.remove_goal()
                         self.env.render()
                     else:
-                        starting_state_list.insert(1, new_ss)
+                        starting_state_list.insert(1, tuple(new_ss))
                         self.env.add_goal(new_ss_loc)
                         self.env.render()
                         add_noise = False
@@ -368,16 +384,16 @@ class Hierarchy:
                         low_steps += 1
                         low_steps_ep += 1  # To log performance
 
-                        if np.array_equal(self.env.state_goal_mapper(css), self.env.state_goal_mapper(cgs)):
+                        if achieved:
                             starting_state_list = starting_state_list[1:]
-                            if len(starting_state_list) == 1:
-                                break
-                            css = starting_state_list[1]  # current_starting_point
-                            cgs = starting_state_list[0]
-                            self.env.remove_goal()
-                            self.env.add_goal(self.env.state_goal_mapper(starting_state_list[0]))
-                            self.env.render()
-                            break
+                            # if len(starting_state_list) == 1:
+                            #     break
+                            # css = starting_state_list[1]  # current_starting_point
+                            # cgs = starting_state_list[0]
+                            # self.env.remove_goal()
+                            # self.env.add_goal(self.env.state_goal_mapper(starting_state_list[0]))
+                            # self.env.render()
+                            # break
 
                         # Max env steps
                         if done and len(info) > 0:
@@ -393,7 +409,7 @@ class Hierarchy:
                     # while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
                     #     goal_stack.pop()
                     # self.env.remove_goal()
-                    self.env.render()
+                    # self.env.render()
 
                     # Check episode completed successfully
                     if len(starting_state_list) == 1:
