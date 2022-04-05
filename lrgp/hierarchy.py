@@ -335,14 +335,16 @@ class Hierarchy:
 
                     # Ask for a new starting state
                     count_proposals = 0
+                    new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
                     while True:
-                        new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
                         count_proposals += 1
-                        if (self.env.check_loc_wall(new_ss) and new_ss not in starting_state_list):
+                        if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in starting_state_list:
                             break
+                        else:
+                            new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), True)
                         if count_proposals % 5 == 0:
                             print(str(count_proposals), " bad proposals were given")
-                    new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
+                    # new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
 
                     # If not allowed, add noise to generate an adjacent goal
