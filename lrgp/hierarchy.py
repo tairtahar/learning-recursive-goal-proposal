@@ -16,7 +16,6 @@ class Hierarchy:
 
         self.logs = list()
 
-
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, render: bool, **kwargs):
 
@@ -61,7 +60,8 @@ class Hierarchy:
                     if not self.low.is_allowed(new_ss_loc, epsilon) or \
                             np.array_equal(new_ss_loc, self.env.state_goal_mapper(cgs)) or \
                             np.array_equal(new_ss_loc, self.env.state_goal_mapper(css)):
-                        self.high.add_penalization((css, new_ss, -high_h, css, self.env.state_goal_mapper(cgs), True))  # ns not used
+                        self.high.add_penalization(
+                            (css, new_ss, -high_h, css, self.env.state_goal_mapper(cgs), True))  # ns not used
                     else:
                         # Adding the new goal in between cgs ans css
                         starting_state_list.insert(1, tuple(new_ss))
@@ -88,7 +88,8 @@ class Hierarchy:
                         next_state, reward, done, info = self.env.step(action, True, css)
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, cgs)
-                        self.low.add_transition((css, action, int(achieved) - 1, next_state, self.env.state_goal_mapper(cgs), achieved))
+                        self.low.add_transition(
+                            (css, action, int(achieved) - 1, next_state, self.env.state_goal_mapper(cgs), achieved))
 
                         css = next_state
 
@@ -102,7 +103,8 @@ class Hierarchy:
                         # Max steps to avoid getting stuck
                         low_steps += 1
 
-                        if tuple(css) in starting_state_list[2:]:  # meaning the agent advances the other way around (goal to target)
+                        if tuple(css) in starting_state_list[
+                                         2:]:  # meaning the agent advances the other way around (goal to target)
                             self.high.add_penalization(
                                 (state_high, css, -high_h, css, self.env.state_goal_mapper(cgs), True))  # ns not used
                             starting_state_list.remove(tuple(css))
@@ -125,8 +127,9 @@ class Hierarchy:
                     assert low_steps != 0
 
                     # Add run info for high agent to create transitions
-                    if not np.array_equal(self.env.state_goal_mapper(state_high), self.env.state_goal_mapper(next_state_high)):
-                        self.high.add_run_info((state_high, self.env.state_goal_mapper(cgs), next_state_high))
+                    if not np.array_equal(self.env.state_goal_mapper(state_high),
+                                          self.env.state_goal_mapper(next_state_high)):
+                        self.high.add_run_info((state_high, self.env.state_goal_mapper(cgs), tuple(next_state_high)))
 
                     # Update goal stack
                     # while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
@@ -330,7 +333,7 @@ class Hierarchy:
                 # css = starting_state_list[1]  # current_starting_point
                 cgs = starting_state_list[0]
                 if self.env.manual_state(starting_state_list[1]):
-                    css = starting_state_list[1] # current_starting_point
+                    css = starting_state_list[1]  # current_starting_point
                 self.env.render()
 
                 # Check if reachable

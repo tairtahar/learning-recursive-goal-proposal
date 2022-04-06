@@ -44,7 +44,7 @@ class HighPolicy:
         # In case action was exactly high + 1, it is out of bounds. Clip
         action = np.clip(action, self.clip_low, self.clip_high)
 
-        return action.astype(np.int)
+        return tuple(action.astype(np.int))
 
     def select_action_test(self, state: np.ndarray, goal: np.ndarray, add_noise: bool = False) -> np.ndarray:
         action = self.alg.select_action(state, goal, True)
@@ -59,7 +59,7 @@ class HighPolicy:
         action = np.floor(action)
         action = np.clip(action, self.clip_low, self.clip_high)
 
-        return action.astype(np.int)
+        return tuple(action.astype(np.int))
 
     def add_run_info(self, info: tuple):
         self.episode_runs.append(info)
