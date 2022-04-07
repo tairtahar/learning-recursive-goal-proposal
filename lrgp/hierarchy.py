@@ -103,11 +103,11 @@ class Hierarchy:
                         # Max steps to avoid getting stuck
                         low_steps += 1
 
-                        if tuple(css) in starting_state_list[
-                                         2:]:  # meaning the agent advances the other way around (goal to target)
-                            self.high.add_penalization(
-                                (state_high, css, -high_h, css, self.env.state_goal_mapper(cgs), True))  # ns not used
-                            starting_state_list.remove(tuple(css))
+                        # if tuple(css) in starting_state_list[
+                        #                  2:]:  # meaning the agent advances the other way around (goal to target)
+                        #     self.high.add_penalization(
+                        #         (state_high, css, -high_h, css, self.env.state_goal_mapper(cgs), True))  # ns not used
+                        #     starting_state_list.remove(tuple(css))
 
                         if achieved:
                             starting_state_list = starting_state_list[1:]
