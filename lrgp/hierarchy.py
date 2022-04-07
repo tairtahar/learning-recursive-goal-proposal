@@ -32,11 +32,11 @@ class Hierarchy:
             # g = np.concatenate((g, np.array([3]))) #having orientation of 4 means it is the ultimate goal
             g = np.concatenate((g, np.random.randint(0, 3, 1)))
             starting_state_list = [tuple(g), tuple(s)]
+            css = starting_state_list[1]  # current_starting_point
+            cgs = starting_state_list[0]
 
             # Start LRGP
             while True:
-                css = starting_state_list[1]  # current_starting_point
-                cgs = starting_state_list[0]
                 # Check if reachable
                 reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), epsilon)
                 if not reachable:
@@ -50,7 +50,7 @@ class Hierarchy:
                     while True:
                         new_ss = self.high.select_action(css, self.env.state_goal_mapper(cgs))
                         count_proposals += 1
-                        if not self.env.check_loc_wall(new_ss):
+                        if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in starting_state_list:
                             break
                         if count_proposals % 40 == 0:
                             print(str(count_proposals), " bad proposals were given")
@@ -65,6 +65,9 @@ class Hierarchy:
                     else:
                         # Adding the new goal in between cgs ans css
                         starting_state_list.insert(1, tuple(new_ss))
+                        css = starting_state_list[1]  # current_starting_point
+                        cgs = starting_state_list[0]
+
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
@@ -111,6 +114,9 @@ class Hierarchy:
 
                         if achieved:
                             starting_state_list = starting_state_list[1:]
+                            if len(starting_state_list) > 1:
+                                css = starting_state_list[1]  # current_starting_point
+                                cgs = starting_state_list[0]
 
                         # Max env steps
                         if done and len(info) > 0:
@@ -190,11 +196,12 @@ class Hierarchy:
 
             ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             starting_state_list = [tuple(ep_goal), tuple(state)]
+            css = starting_state_list[1]
+            cgs = starting_state_list[0]
 
             # Start LRGP
             while True:
-                css = starting_state_list[1]  # current_starting_point
-                cgs = starting_state_list[0]
+                # css = starting_state_list[1]  # current_starting_point
 
                 # Check if reachable
                 reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), 0)
@@ -225,6 +232,9 @@ class Hierarchy:
                         add_noise = True
                     else:
                         starting_state_list.insert(1, tuple(new_ss))
+                        # if len(starting_state_list) > 1:
+                        cgs = starting_state_list[0]
+                        css = starting_state_list[1]  # current_starting_point
                         add_noise = False
 
 
@@ -255,6 +265,9 @@ class Hierarchy:
 
                         if achieved:
                             starting_state_list = starting_state_list[1:]
+                            if len(starting_state_list) > 1:
+                                css = starting_state_list[1]  # current_starting_point
+                                cgs = starting_state_list[0]
 
                         # if self.env.state_goal_mapper(cgs) in starting_state_list
                         # Max env steps
