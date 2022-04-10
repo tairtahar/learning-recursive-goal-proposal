@@ -52,7 +52,7 @@ class Hierarchy:
                     if not self.low.is_allowed(new_goal, epsilon) or \
                             np.array_equal(new_goal, goal) or \
                             np.array_equal(new_goal, self.env.state_goal_mapper(state)):
-                        self.high.add_penalization((state, new_goal, -high_h, state, goal, True))  # ns not used
+                        self.high.add_penalization((tuple(state), tuple(new_goal), -high_h, tuple(state), tuple(goal), True))  # ns not used
                     else:
                         goal_stack.append(new_goal)
 
@@ -77,7 +77,7 @@ class Hierarchy:
                         next_state, reward, done, info = self.env.step(action)
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, goal)
-                        self.low.add_transition((state, action, int(achieved) - 1, next_state, goal, achieved))
+                        self.low.add_transition((tuple(state), action, int(achieved) - 1, next_state, tuple(goal), achieved))
 
                         state = next_state
 
@@ -107,7 +107,7 @@ class Hierarchy:
 
                     # Add run info for high agent to create transitions
                     if not np.array_equal(state_high, next_state_high):
-                        self.high.add_run_info((state_high, goal, next_state_high))
+                        self.high.add_run_info((tuple(state_high), tuple(goal), tuple(next_state_high)))
 
                     # Update goal stack
                     while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):

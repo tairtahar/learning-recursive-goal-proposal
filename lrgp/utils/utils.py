@@ -5,14 +5,18 @@ import numpy as np
 class ReplayBuffer:
     def __init__(self, max_size=5e5):
         self.max_size = int(max_size)
-        self.buffer = []
-        self.position = 0
+        self.buffer = set()
+        # self.position = 0
+
+    # def add(self, *args):
+    #     if len(self.buffer) < self.max_size:
+    #         self.buffer.append(None)
+    #     self.buffer[self.position] = args
+    #     self.position = (self.position + 1) % self.max_size
 
     def add(self, *args):
         if len(self.buffer) < self.max_size:
-            self.buffer.append(None)
-        self.buffer[self.position] = args
-        self.position = (self.position + 1) % self.max_size
+            self.buffer.add(tuple(args))
 
     def sample(self, batch_size):
         batch_size = min(batch_size, len(self))
@@ -69,6 +73,9 @@ class HERTransitionCreator:
 
             # Add to replay buffer (original transitions were already added)
             replay_buffer.add(*t.to_tup())
+
+            if np.array_equal(t.state,t.next_state):  # Adding penalty for impossible action
+                t.reward = -2
 
         # Flush list for following episode
         self.original_transitions = list()
