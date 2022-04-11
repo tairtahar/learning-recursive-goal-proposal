@@ -32,11 +32,15 @@ class Hierarchy:
             # g = np.concatenate((g, np.array([3]))) #having orientation of 4 means it is the ultimate goal
             g = np.concatenate((g, np.random.randint(0, 3, 1)))
             starting_state_list = [tuple(g), tuple(s)]
-            css = starting_state_list[1]  # current_starting_point
-            cgs = starting_state_list[0]
+
+            last_state = None
 
             # Start LRGP
             while True:
+                css = starting_state_list[1]  # current_starting_point
+                cgs = starting_state_list[0]
+                accumulate_reward = 0
+
                 # Check if reachable
                 reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), epsilon)
                 if not reachable:
@@ -65,8 +69,10 @@ class Hierarchy:
                     else:
                         # Adding the new goal in between cgs ans css
                         starting_state_list.insert(1, tuple(new_ss))
-                        css = starting_state_list[1]  # current_starting_point
-                        cgs = starting_state_list[0]
+                        last_state = css
+                        # accumulate_reward = 0
+                        # css = starting_state_list[1]  # current_starting_point
+                        # cgs = starting_state_list[0]
 
 
                 else:
@@ -89,6 +95,7 @@ class Hierarchy:
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
                         action = self.low.select_action(css, self.env.state_goal_mapper(cgs), epsilon)
                         next_state, reward, done, info = self.env.step(action, True, css)
+                        accumulate_reward += reward
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, cgs)
                         self.low.add_transition(
@@ -114,9 +121,9 @@ class Hierarchy:
 
                         if achieved:
                             starting_state_list = starting_state_list[1:]
-                            if len(starting_state_list) > 1:
-                                css = starting_state_list[1]  # current_starting_point
-                                cgs = starting_state_list[0]
+                            # if len(starting_state_list) > 1:
+                            #     css = starting_state_list[1]  # current_starting_point
+                            #     cgs = starting_state_list[0]
 
                         # Max env steps
                         if done and len(info) > 0:
@@ -133,9 +140,11 @@ class Hierarchy:
                     assert low_steps != 0
 
                     # Add run info for high agent to create transitions
-                    if not np.array_equal(self.env.state_goal_mapper(state_high),
-                                          self.env.state_goal_mapper(next_state_high)):
-                        self.high.add_run_info((state_high, self.env.state_goal_mapper(cgs), tuple(next_state_high)))
+                    # if not np.array_equal(self.env.state_goal_mapper(state_high),
+                    #                       self.env.state_goal_mapper(next_state_high))\
+                    #         and
+                    if last_state is not None:
+                        self.high.add_run_info((last_state, new_ss, accumulate_reward, tuple(css), self.env.state_goal_mapper(cgs)))
 
                     # Update goal stack
                     # while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
@@ -160,9 +169,9 @@ class Hierarchy:
 
             # Test to validate training
             if (episode + 1) % test_each == 0:
-                subg, subg_a, steps, steps_a, max_subg, sr, low_sr = self.test(n_episodes_test, low_h, high_h, render)
+                subg, subg_a, steps, steps_a, max_subg, sr, low_sr, bad_propose = self.test(n_episodes_test, low_h, high_h, render)
                 print(f"Episode {episode + 1:5d}: {100 * sr:5.1f}% Achieved")
-                self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr,
+                self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr, bad_propose,
                                   len(self.high.replay_buffer), len(self.low.replay_buffer),
                                   len(self.low.reachable_buffer), len(self.low.allowed_buffer)])
 
@@ -182,6 +191,7 @@ class Hierarchy:
         log_success = list()
         log_low_success = list()
         log_max_proposals = list()
+        log_bad_proposals = list()
 
         for episode in range(n_episodes):
             # Init episode variables
@@ -196,12 +206,12 @@ class Hierarchy:
 
             ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             starting_state_list = [tuple(ep_goal), tuple(state)]
-            css = starting_state_list[1]
-            cgs = starting_state_list[0]
+            # css = starting_state_list[1]
 
             # Start LRGP
             while True:
-                # css = starting_state_list[1]  # current_starting_point
+                css = starting_state_list[1]  # current_starting_point
+                cgs = starting_state_list[0]
 
                 # Check if reachable
                 reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), 0)
@@ -224,7 +234,7 @@ class Hierarchy:
                             new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), True)
                         if count_proposals % 20 == 0:
                             print(str(count_proposals), " bad proposals were given")
-
+                    log_bad_proposals.append(count_proposals)
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
 
                     # If not allowed, add noise to generate an adjacent goal
@@ -233,8 +243,8 @@ class Hierarchy:
                     else:
                         starting_state_list.insert(1, tuple(new_ss))
                         # if len(starting_state_list) > 1:
-                        cgs = starting_state_list[0]
-                        css = starting_state_list[1]  # current_starting_point
+                        # cgs = starting_state_list[0]
+                        # css = starting_state_list[1]  # current_starting_point
                         add_noise = False
 
 
@@ -265,9 +275,9 @@ class Hierarchy:
 
                         if achieved:
                             starting_state_list = starting_state_list[1:]
-                            if len(starting_state_list) > 1:
-                                css = starting_state_list[1]  # current_starting_point
-                                cgs = starting_state_list[0]
+                            # if len(starting_state_list) > 1:
+                            #     css = starting_state_list[1]  # current_starting_point
+                            #     cgs = starting_state_list[0]
 
                         # if self.env.state_goal_mapper(cgs) in starting_state_list
                         # Max env steps
@@ -314,7 +324,7 @@ class Hierarchy:
 
         return np.array(log_proposals).mean(), np.array(log_proposals_a).mean(), np.array(log_steps).mean(), \
                np.array(log_steps_a).mean(), np.array(log_max_proposals).mean(), np.array(log_success).mean(), \
-               np.array(log_low_success).mean()
+               np.array(log_low_success).mean(), np.array(log_bad_proposals).mean()
 
     def _test_render(self, n_episodes: int, low_h: int, high_h: int) -> Tuple[np.ndarray, ...]:
 
@@ -326,6 +336,7 @@ class Hierarchy:
         log_success = list()
         log_low_success = list()
         log_max_proposals = list()
+        log_bad_proposals = list()
 
         for episode in range(n_episodes):
             # Init episode variables
@@ -370,6 +381,8 @@ class Hierarchy:
                             new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), True)
                         if count_proposals % 20 == 0:
                             print(str(count_proposals), " bad proposals were given")
+                    log_bad_proposals.append(count_proposals)
+
                     # new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
 
@@ -472,7 +485,7 @@ class Hierarchy:
                np.array(log_low_success).mean()
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
-        return np.array_equal(self.env.state_goal_mapper(state), self.env.state_goal_mapper(goal))
+        return np.array_equal(state, goal)
 
     def save(self, path: str):
         if not os.path.exists(path):
