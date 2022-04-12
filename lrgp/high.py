@@ -98,7 +98,7 @@ class HighPolicy:
         # We do not create transitions between states and goals that are reachable within one run.
         # We do not need to learn them because no subgoals are required
 
-        for i, (original_state, action, reward, next_state, goal) in enumerate(self.episode_runs):
+        for i, (state, goal, reward, next_state) in enumerate(self.episode_runs):
             # for j, (_, _, next_state_3) in enumerate(self.episode_runs[i + 1:], i + 1):
             #     # Used as final goal
             #     hindsight_goal_3 = self.env.state_goal_mapper(next_state_3)
@@ -106,8 +106,8 @@ class HighPolicy:
             #         # Used as intermediate goal or proposed action
             #         # hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
             #         hindsight_goal_2 = next_state_2
-            self.replay_buffer.add(original_state,             # given starting state
-                           action,    # action <-> suggestion for starting state
+            self.replay_buffer.add(state,             # given starting state
+                           next_state,    # action <-> suggestion for starting state
                            reward,        # reward external
                            next_state,        #  result state after h_low steps
                            goal,    # goal

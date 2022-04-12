@@ -34,15 +34,14 @@ class Hierarchy:
             starting_state_list = [tuple(g), tuple(s)]
 
             last_state = None
+            css = starting_state_list[1]  # current_starting_point
+            cgs = starting_state_list[0]
+            accumulated_reward = 0
 
             # Start LRGP
             while True:
-                css = starting_state_list[1]  # current_starting_point
-                cgs = starting_state_list[0]
-                accumulate_reward = 0
-
                 # Check if reachable
-                reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), epsilon)
+                reachable = self.low.is_reachable(css, cgs, epsilon)
                 if not reachable:
                     # Check if more proposals available
                     subgoals_proposed += 1
@@ -64,15 +63,15 @@ class Hierarchy:
                     if not self.low.is_allowed(new_ss_loc, epsilon) or \
                             np.array_equal(new_ss_loc, self.env.state_goal_mapper(cgs)) or \
                             np.array_equal(new_ss_loc, self.env.state_goal_mapper(css)):
-                        self.high.add_penalization(
-                            (css, new_ss, -high_h, css, self.env.state_goal_mapper(cgs), True))  # ns not used
+                        self.high.add_penalization((css, new_ss, -high_h, css, self.env.state_goal_mapper(cgs), True))
+                            # (css, new_ss, -high_h, css, cgs, True))  # ns not used
                     else:
                         # Adding the new goal in between cgs ans css
                         starting_state_list.insert(1, tuple(new_ss))
                         last_state = css
-                        # accumulate_reward = 0
-                        # css = starting_state_list[1]  # current_starting_point
-                        # cgs = starting_state_list[0]
+                        accumulated_reward = 0
+                        css = starting_state_list[1]  # current_starting_point
+                        cgs = starting_state_list[0]
 
 
                 else:
@@ -84,7 +83,7 @@ class Hierarchy:
                     achieved = self._goal_achived(css, cgs)
                     low_fwd = 0
                     low_steps = 0
-
+                    accumulated_reward = 0
                     # Add state to compute reachable pairs
                     self.low.add_run_step(css)
                     # Add current position as allowed goal to overcome the incomplete goal space problem
@@ -95,7 +94,7 @@ class Hierarchy:
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
                         action = self.low.select_action(css, self.env.state_goal_mapper(cgs), epsilon)
                         next_state, reward, done, info = self.env.step(action, True, css)
-                        accumulate_reward += reward
+                        accumulated_reward += reward
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, cgs)
                         self.low.add_transition(
@@ -121,9 +120,9 @@ class Hierarchy:
 
                         if achieved:
                             starting_state_list = starting_state_list[1:]
-                            # if len(starting_state_list) > 1:
-                            #     css = starting_state_list[1]  # current_starting_point
-                            #     cgs = starting_state_list[0]
+                            if len(starting_state_list) > 1:
+                                css = starting_state_list[1]  # current_starting_point
+                                cgs = starting_state_list[0]
 
                         # Max env steps
                         if done and len(info) > 0:
@@ -140,11 +139,11 @@ class Hierarchy:
                     assert low_steps != 0
 
                     # Add run info for high agent to create transitions
-                    # if not np.array_equal(self.env.state_goal_mapper(state_high),
-                    #                       self.env.state_goal_mapper(next_state_high))\
-                    #         and
-                    if last_state is not None:
-                        self.high.add_run_info((last_state, new_ss, accumulate_reward, tuple(css), self.env.state_goal_mapper(cgs)))
+                    if not np.array_equal(state_high, next_state_high):
+                            # and if last_state is not None:
+                        # self.high.add_run_info((last_state, new_ss, accumulate_reward, tuple(css), self.env.state_goal_mapper(cgs)))
+                        # self.high.add_run_info((state_high, cgs, accumulated_reward, next_state_high))
+                        self.high.add_run_info((state_high, self.env.state_goal_mapper(cgs), accumulated_reward, tuple(next_state_high)))
 
                     # Update goal stack
                     # while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
@@ -207,12 +206,11 @@ class Hierarchy:
             ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             starting_state_list = [tuple(ep_goal), tuple(state)]
             # css = starting_state_list[1]
+            css = starting_state_list[1]  # current_starting_point
+            cgs = starting_state_list[0]
 
             # Start LRGP
             while True:
-                css = starting_state_list[1]  # current_starting_point
-                cgs = starting_state_list[0]
-
                 # Check if reachable
                 reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), 0)
 
@@ -242,9 +240,9 @@ class Hierarchy:
                         add_noise = True
                     else:
                         starting_state_list.insert(1, tuple(new_ss))
-                        # if len(starting_state_list) > 1:
-                        # cgs = starting_state_list[0]
-                        # css = starting_state_list[1]  # current_starting_point
+                        if len(starting_state_list) > 1:
+                            cgs = starting_state_list[0]
+                            css = starting_state_list[1]  # current_starting_point
                         add_noise = False
 
 
@@ -275,9 +273,9 @@ class Hierarchy:
 
                         if achieved:
                             starting_state_list = starting_state_list[1:]
-                            # if len(starting_state_list) > 1:
-                            #     css = starting_state_list[1]  # current_starting_point
-                            #     cgs = starting_state_list[0]
+                            if len(starting_state_list) > 1:
+                                css = starting_state_list[1]  # current_starting_point
+                                cgs = starting_state_list[0]
 
                         # if self.env.state_goal_mapper(cgs) in starting_state_list
                         # Max env steps
