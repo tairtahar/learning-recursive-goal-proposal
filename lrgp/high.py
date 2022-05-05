@@ -39,14 +39,14 @@ class HighPolicy:
 
     def select_action(self, state: np.ndarray, goal: np.ndarray) -> np.ndarray:
         if self.replay_buffer.__len__() == 0:  # for the first steps, high buffer still empty
-            action = np.random.uniform(size=(1,2))
+            action = np.random.uniform(-1, 1, size=(1,2))
             action = action * self.action_bound + self.action_offset
-            return action
+            return action.astype(np.int)[0]
+
         possible_suggestions = []
         q_vals = []
         state = torch.FloatTensor(state).to(device)
         goal = torch.FloatTensor(goal).to(device)
-
         for exp in self.replay_buffer.buffer:
             if tuple(exp[4]) == tuple(goal):  #TODO: add limitation of horizon:
                 action = exp[1]
@@ -61,7 +61,7 @@ class HighPolicy:
             idx = np.random.randint(0, len(self.replay_buffer.buffer))
             return self.replay_buffer.buffer[idx][1]
         max_idx = np.argmax(np.array(q_vals))
-        return possible_suggestions[max_idx].astype(np.int)
+        return possible_suggestions[max_idx].astype(np.int)[0]
 
         # SAC action is continuous [low, high + 1]
         # action = self.alg.select_action(state, goal, False)

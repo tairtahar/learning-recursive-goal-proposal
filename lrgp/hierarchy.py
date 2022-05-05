@@ -49,9 +49,8 @@ class Hierarchy:
 
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
-                    if not self.low.is_allowed(new_goal, epsilon) or \
-                            np.array_equal(new_goal, goal) or \
-                            np.array_equal(new_goal, self.env.state_goal_mapper(state)):
+                    if np.array_equal(new_goal, goal) or np.array_equal(new_goal, self.env.state_goal_mapper(state)):
+                        # not self.low.is_allowed(new_goal, epsilon)
                         self.high.add_penalization((state, new_goal, -high_h, state, goal, True))  # ns not used
                     else:
                         goal_stack.append(new_goal)
@@ -96,6 +95,7 @@ class Hierarchy:
                             max_env_steps = True
                             break
 
+                    goal_stack.pop()
                     # Run's final state
                     next_state_high = state
                     self.high.solution.append(state)
