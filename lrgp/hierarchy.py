@@ -14,6 +14,7 @@ class Hierarchy:
         self.low = LowPolicy(env)
         self.high = HighPolicy(env)
         self.logs = list()
+        self.max_stack_size = 10
 
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
@@ -24,12 +25,11 @@ class Hierarchy:
             # Init episode variables
             subgoals_proposed = 0
             max_env_steps = False
-            max_stack_size = 10
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
             goal_stack = [ep_goal]
-            self.high.solution.append(state)
+            # self.high.solution.append(state)
 
             # Start LRGP
             while True:
@@ -38,7 +38,7 @@ class Hierarchy:
                 # Check if reachable
                 reachable = self.low.is_reachable(state, goal, epsilon)
 
-                if not reachable and subgoals_proposed <= high_h and len(goal_stack) < max_stack_size:
+                if not reachable and subgoals_proposed <= high_h and len(goal_stack) < self.max_stack_size:
                     # Check if more proposals available
                     subgoals_proposed += 1
                     if subgoals_proposed > high_h:
@@ -51,7 +51,8 @@ class Hierarchy:
                     # Penalize this proposal and avoid adding it to stack
                     if np.array_equal(new_goal, goal) or np.array_equal(new_goal, self.env.state_goal_mapper(state)):
                         # not self.low.is_allowed(new_goal, epsilon)
-                        self.high.add_penalization((state, new_goal, -high_h, state, goal, True))  # ns not used
+                        self.high.add_penalization((tuple(state), new_goal, -high_h, tuple(state),
+                                                    self.env.state_goal_mapper(goal), True))  # ns not used
                     else:
                         goal_stack.append(new_goal)
 
@@ -72,11 +73,12 @@ class Hierarchy:
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
-                        action = self.low.select_action(state, goal, epsilon)
+                        action = self.low.select_action(state, self.env.state_goal_mapper(goal), epsilon)
                         next_state, reward, done, info = self.env.step(action)
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, goal)
-                        self.low.add_transition((state, action, int(achieved) - 1, next_state, goal, achieved))
+                        self.low.add_transition((state, action, int(achieved) - 1, next_state,
+                                                 tuple(self.env.state_goal_mapper(goal)), achieved))
 
                         state = next_state
 
@@ -98,7 +100,7 @@ class Hierarchy:
                     goal_stack.pop()
                     # Run's final state
                     next_state_high = state
-                    self.high.solution.append(state)
+                    # self.high.solution.append(state)
                     # Create reachable transitions from run info
                     self.low.create_reachable_transitions(goal, achieved)
 
@@ -159,6 +161,7 @@ class Hierarchy:
             # Init episode variables
             subgoals_proposed = 0
             low_steps_ep = 0
+            max_env_steps = False
             max_env_steps = max_subgoals_proposed = low_stuck = add_noise = False
 
             # Generate env initialization
@@ -170,9 +173,9 @@ class Hierarchy:
                 goal = goal_stack[-1]
 
                 # Check if reachable
-                reachable = self.low.is_reachable(state, goal, 0)
+                reachable = self.low.is_reachable(state, self.env.state_goal_mapper(goal), 0)
 
-                if not reachable:
+                if not reachable and subgoals_proposed <= high_h and len(goal_stack) < self.max_stack_size:
                     # Check if more proposals available
                     subgoals_proposed += 1
                     if subgoals_proposed > high_h:
@@ -181,13 +184,14 @@ class Hierarchy:
 
                     # Ask for a new subgoal
                     new_goal = self.high.select_action_test(state, goal, add_noise)
+                    goal_stack.append(new_goal)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(new_goal, 0):
-                        add_noise = True
-                    else:
-                        goal_stack.append(new_goal)
-                        add_noise = False
+                    # if not self.low.is_allowed(new_goal, 0):
+                    #     add_noise = True
+                    # else:
+                    #     goal_stack.append(new_goal)
+                    #     add_noise = False
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
@@ -201,7 +205,7 @@ class Hierarchy:
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
-                        action = self.low.select_action(state, goal, 0)
+                        action = self.low.select_action(state, self.env.state_goal_mapper(goal), 0)
                         next_state, reward, done, info = self.env.step(action)
                         achieved = self._goal_achived(next_state, goal)
 

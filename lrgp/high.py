@@ -17,7 +17,7 @@ class HighPolicy:
         state_shape = env.observation_space.shape[0]
         goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0]
         # High agent proposes goals --> action space === goal space
-        action_shape = goal_shape
+        action_shape = state_shape
 
         # Compute action bounds to convert SAC's action in the correct range
         action_low = env.state_goal_mapper(env.observation_space.low)
@@ -26,12 +26,14 @@ class HighPolicy:
 
         self.action_bound = (action_high_corrected - action_low) / 2
         self.action_offset = (action_high_corrected + action_low) / 2
+        self.action_bound = np.concatenate((self.action_bound, np.array([2])))
+        self.action_offset = np.concatenate((self.action_offset, np.array([2])))
 
         # Init SAC algorithm, base learner for high agent
         self.alg = SACStateGoal(state_shape, action_shape, goal_shape, self.action_bound, self.action_offset, gamma, tau)
 
-        self.clip_low = action_low
-        self.clip_high = action_high
+        self.clip_low = np.concatenate((action_low, np.array([0])))
+        self.clip_high = np.concatenate((action_high, np.array([3])))
 
         self.replay_buffer = ReplayBuffer(br_size)
         self.episode_runs = list()
@@ -39,10 +41,10 @@ class HighPolicy:
 
     def select_action(self, state: np.ndarray, goal: np.ndarray) -> np.ndarray:
         if self.replay_buffer.__len__() == 0:  # for the first steps, high buffer still empty
-            action = np.random.uniform(-1, 1, size=(1,2))
+            action = np.random.uniform(-1, 1, size=(3, 1))
+            # action = np.concatenate((action, np.array([np.random.randint(0, 3)])))
             action = action * self.action_bound + self.action_offset
             return action.astype(np.int)[0]
-
         possible_suggestions = []
         q_vals = []
         state = torch.FloatTensor(state).to(device)
@@ -52,7 +54,8 @@ class HighPolicy:
                 action = exp[1]
                 possible_suggestions.append(action)
                 action = torch.FloatTensor(action).to(device)
-                state_action = torch.cat([state, action], dim=-1)
+                action_as_goal = torch.FloatTensor(action[:2]).to(device)
+                state_action = torch.cat([state, action_as_goal], dim=-1)
                 action_goal = torch.cat([action, goal], dim=-1)
                 with torch.no_grad():
                     q_value = self.alg.value(state_action) + self.alg.value(action_goal)  # direct estimation of the Q value.
@@ -61,7 +64,7 @@ class HighPolicy:
             idx = np.random.randint(0, len(self.replay_buffer.buffer))
             return self.replay_buffer.buffer[idx][1]
         max_idx = np.argmax(np.array(q_vals))
-        return possible_suggestions[max_idx].astype(np.int)[0]
+        return possible_suggestions[max_idx]
 
         # SAC action is continuous [low, high + 1]
         # action = self.alg.select_action(state, goal, False)
@@ -83,7 +86,7 @@ class HighPolicy:
         # action = np.floor(action)
         # action = np.clip(action, self.clip_low, self.clip_high)
 
-        return action.astype(np.int)
+        return action
 
     def add_run_info(self, info: tuple):
         self.episode_runs.append(info)
@@ -105,21 +108,22 @@ class HighPolicy:
                 for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
                     # Used as intermediate goal or proposed action
                     hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
-                    state = torch.FloatTensor(self.env.state_goal_mapper(state_1)).to(device)
+                    state = torch.FloatTensor(state_1).to(device)
+                    action_3dim = torch.FloatTensor(next_state_2).to(device)
                     action = torch.FloatTensor(hindsight_goal_2).to(device)
                     goal = torch.FloatTensor(hindsight_goal_3).to(device)
                     state_action = torch.cat([state, action], dim=-1)
-                    action_goal = torch.cat([action, goal], dim=-1)
+                    action_goal = torch.cat([action_3dim, goal], dim=-1)
                     state_goal = torch.cat([state, goal], dim=-1)
                     with torch.no_grad():
                         q1 = self.alg.value(state_action)
                         q2 = self.alg.value(action_goal)
                         q3 = self.alg.value(state_goal)
                         if q3 < q1 + q2:
-                            self.replay_buffer.add(state_1,  # state
-                                                   hindsight_goal_2,  # action <-> proposed goal
+                            self.replay_buffer.add(tuple(state_1),  # state
+                                                   next_state_2,  # action <-> proposed goal
                                                    # -(j - i + 1),  # reward <-> - N runs
-                                                   q1 + q2,
+                                                   (q1 + q2).numpy()[0],
                                                    next_state_1,  # (NOT USED) next_state
                                                    hindsight_goal_3,  # goal
                                                    True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
@@ -137,7 +141,7 @@ class HighPolicy:
         #             if q3 > q1 + q2:
         #                 self.replay_buffer.add(i,j,q1+q2,k, True)  # (state, subgoal, cost, goal)
 
-        self.solution = list()
+        # self.solution = list()
 
     def update(self, n_updates: int, batch_size: int):
         if len(self.replay_buffer) > 0:
