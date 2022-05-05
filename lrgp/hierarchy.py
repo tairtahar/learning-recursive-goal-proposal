@@ -13,7 +13,6 @@ class Hierarchy:
         self.env = env
         self.low = LowPolicy(env)
         self.high = HighPolicy(env)
-
         self.logs = list()
 
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
@@ -22,14 +21,15 @@ class Hierarchy:
         for episode in range(n_episodes):
             # Noise and epsilon for this episode
             epsilon = epsilon_f(episode)
-
             # Init episode variables
             subgoals_proposed = 0
             max_env_steps = False
+            max_stack_size = 10
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
             goal_stack = [ep_goal]
+            self.high.solution.append(state)
 
             # Start LRGP
             while True:
@@ -38,7 +38,7 @@ class Hierarchy:
                 # Check if reachable
                 reachable = self.low.is_reachable(state, goal, epsilon)
 
-                if not reachable:
+                if not reachable and subgoals_proposed <= high_h and len(goal_stack) < max_stack_size:
                     # Check if more proposals available
                     subgoals_proposed += 1
                     if subgoals_proposed > high_h:
@@ -98,7 +98,7 @@ class Hierarchy:
 
                     # Run's final state
                     next_state_high = state
-
+                    self.high.solution.append(state)
                     # Create reachable transitions from run info
                     self.low.create_reachable_transitions(goal, achieved)
 

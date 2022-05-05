@@ -1,8 +1,13 @@
+import random
+import torch
+
 import numpy as np
 from gym_simple_minigrid.minigrid import SimpleMiniGridEnv
 
 from .rl_algs.sac import SACStateGoal
 from .utils.utils import ReplayBuffer
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class HighPolicy:
@@ -19,41 +24,64 @@ class HighPolicy:
         action_high = env.state_goal_mapper(env.observation_space.high)
         action_high_corrected = 1 + action_high  # To adapt discrete env into SAC (continuous actions)
 
-        action_bound = (action_high_corrected - action_low) / 2
-        action_offset = (action_high_corrected + action_low) / 2
+        self.action_bound = (action_high_corrected - action_low) / 2
+        self.action_offset = (action_high_corrected + action_low) / 2
 
         # Init SAC algorithm, base learner for high agent
-        self.alg = SACStateGoal(state_shape, action_shape, goal_shape, action_bound, action_offset, gamma, tau)
+        self.alg = SACStateGoal(state_shape, action_shape, goal_shape, self.action_bound, self.action_offset, gamma, tau)
 
         self.clip_low = action_low
         self.clip_high = action_high
 
         self.replay_buffer = ReplayBuffer(br_size)
-
         self.episode_runs = list()
+        self.solution = list()
 
     def select_action(self, state: np.ndarray, goal: np.ndarray) -> np.ndarray:
-        # SAC action is continuous [low, high + 1]
-        action = self.alg.select_action(state, goal, False)
-        # Discretize using floor --> discrete [low, high + 1]
-        action = np.floor(action)
-        # In case action was exactly high + 1, it is out of bounds. Clip
-        action = np.clip(action, self.clip_low, self.clip_high)
+        if self.replay_buffer.__len__() == 0:  # for the first steps, high buffer still empty
+            action = np.random.uniform(size=(1,2))
+            action = action * self.action_bound + self.action_offset
+            return action
+        possible_suggestions = []
+        q_vals = []
+        state = torch.FloatTensor(state).to(device)
+        goal = torch.FloatTensor(goal).to(device)
 
-        return action.astype(np.int)
+        for exp in self.replay_buffer.buffer:
+            if tuple(exp[4]) == tuple(goal):  #TODO: add limitation of horizon:
+                action = exp[1]
+                possible_suggestions.append(action)
+                action = torch.FloatTensor(action).to(device)
+                state_action = torch.cat([state, action], dim=-1)
+                action_goal = torch.cat([action, goal], dim=-1)
+                with torch.no_grad():
+                    q_value = self.alg.value(state_action) + self.alg.value(action_goal)  # direct estimation of the Q value.
+                    q_vals.append(q_value)
+        if len(q_vals) == 0:
+            idx = np.random.randint(0, len(self.replay_buffer.buffer))
+            return self.replay_buffer.buffer[idx][1]
+        max_idx = np.argmax(np.array(q_vals))
+        return possible_suggestions[max_idx].astype(np.int)
+
+        # SAC action is continuous [low, high + 1]
+        # action = self.alg.select_action(state, goal, False)
+        # # Discretize using floor --> discrete [low, high + 1]
+        # action = np.floor(action)
+        # # In case action was exactly high + 1, it is out of bounds. Clip
+        # action = np.clip(action, self.clip_low, self.clip_high)
 
     def select_action_test(self, state: np.ndarray, goal: np.ndarray, add_noise: bool = False) -> np.ndarray:
-        action = self.alg.select_action(state, goal, True)
+        action = self.select_action(state, goal)  # , True)
 
-        noise = 0
-        if add_noise:
-            # Add small noise so we choose an adjacent goal position
-            noise = np.random.randint(-1, 2, action.shape)
-        action = action + noise
-
-        # Discretize and clip
-        action = np.floor(action)
-        action = np.clip(action, self.clip_low, self.clip_high)
+        # noise = 0
+        # if add_noise:
+        #     # Add small noise so we choose an adjacent goal position
+        #     noise = np.random.randint(-1, 2, action.shape)
+        # action = action + noise
+        #
+        # # Discretize and clip
+        # action = np.floor(action)
+        # action = np.clip(action, self.clip_low, self.clip_high)
 
         return action.astype(np.int)
 
@@ -77,13 +105,39 @@ class HighPolicy:
                 for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
                     # Used as intermediate goal or proposed action
                     hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
-                    self.replay_buffer.add(state_1,             # state
-                                           hindsight_goal_2,    # action <-> proposed goal
-                                           -(j - i + 1),        # reward <-> - N runs
-                                           next_state_1,        # (NOT USED) next_state
-                                           hindsight_goal_3,    # goal
-                                           True)                # done --> Q-value = Reward (no bootstrap / Bellman eq)
+                    state = torch.FloatTensor(self.env.state_goal_mapper(state_1)).to(device)
+                    action = torch.FloatTensor(hindsight_goal_2).to(device)
+                    goal = torch.FloatTensor(hindsight_goal_3).to(device)
+                    state_action = torch.cat([state, action], dim=-1)
+                    action_goal = torch.cat([action, goal], dim=-1)
+                    state_goal = torch.cat([state, goal], dim=-1)
+                    with torch.no_grad():
+                        q1 = self.alg.value(state_action)
+                        q2 = self.alg.value(action_goal)
+                        q3 = self.alg.value(state_goal)
+                        if q3 < q1 + q2:
+                            self.replay_buffer.add(state_1,  # state
+                                                   hindsight_goal_2,  # action <-> proposed goal
+                                                   # -(j - i + 1),  # reward <-> - N runs
+                                                   q1 + q2,
+                                                   next_state_1,  # (NOT USED) next_state
+                                                   hindsight_goal_3,  # goal
+                                                   True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
         self.episode_runs = list()
+
+        # for ni in range(len(self.solution)):
+        #     i = self.solution[ni]
+        #     for nj in range(ni+1, len(self.solution)):
+        #         j = self.solution[nj]
+        #         for nk in range(nj+1, len(self.solution)):
+        #             k = self.solution[nk]
+        #             q1 = self.alg.value(i, j)
+        #             q2 = self.alg.value(j, k)
+        #             q3 = self.alg.value(i, k)
+        #             if q3 > q1 + q2:
+        #                 self.replay_buffer.add(i,j,q1+q2,k, True)  # (state, subgoal, cost, goal)
+
+        self.solution = list()
 
     def update(self, n_updates: int, batch_size: int):
         if len(self.replay_buffer) > 0:
