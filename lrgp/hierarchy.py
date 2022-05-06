@@ -14,7 +14,7 @@ class Hierarchy:
         self.low = LowPolicy(env)
         self.high = HighPolicy(env)
         self.logs = list()
-        self.max_stack_size = 10
+        self.max_stack_size = 10  # TODO: add this to argparse
 
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
@@ -49,12 +49,12 @@ class Hierarchy:
 
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
-                    if np.array_equal(new_goal, goal) or np.array_equal(new_goal, self.env.state_goal_mapper(state)):
-                        # not self.low.is_allowed(new_goal, epsilon)
-                        self.high.add_penalization((tuple(state), new_goal, -high_h, tuple(state),
-                                                    self.env.state_goal_mapper(goal), True))  # ns not used
-                    else:
-                        goal_stack.append(new_goal)
+                    # if np.array_equal(new_goal, goal) or np.array_equal(new_goal, self.env.state_goal_mapper(state)):
+                    #     # not self.low.is_allowed(new_goal, epsilon)
+                    #     self.high.add_penalization((tuple(state), new_goal, -high_h, tuple(state),
+                    #                                 self.env.state_goal_mapper(goal), True))  # ns not used
+                    # else:
+                    goal_stack.append(new_goal)
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
