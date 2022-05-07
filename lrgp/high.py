@@ -127,6 +127,14 @@ class HighPolicy:
                                                    next_state_1,  # (NOT USED) next_state
                                                    hindsight_goal_3,  # goal
                                                    True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
+                        else:
+                            self.replay_buffer.add(tuple(state_1),  # state
+                                                   next_state_2,  # action <-> proposed goal
+                                                   -(j - i + 1),  # reward <-> - N runs
+                                                   # (q1 + q2).numpy()[0],
+                                                   next_state_1,  # (NOT USED) next_state
+                                                   hindsight_goal_3,  # goal
+                                                   True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
         self.episode_runs = list()
 
         # for ni in range(len(self.solution)):
