@@ -36,6 +36,7 @@ class HighPolicy:
         self.clip_high = np.concatenate((action_high, np.array([3])))
 
         self.replay_buffer = ReplayBuffer(br_size)
+        self.goal_list = [set() for _ in range(self.env.height*self.env.width)]
         self.episode_runs = list()
         self.solution = list()
         self.low_h = 0
@@ -43,24 +44,38 @@ class HighPolicy:
     def select_action(self, state: np.ndarray, goal: np.ndarray) -> np.ndarray:
         if self.replay_buffer.__len__() == 0:  # for the first steps, high buffer still empty
             action = np.random.uniform(-1, 1, size=(3, 1))
-            # action = np.concatenate((action, np.array([np.random.randint(0, 3)])))
             action = action * self.action_bound + self.action_offset
             return action.astype(np.int)[0]
         possible_suggestions = []
         q_vals = []
-        state = torch.FloatTensor(state).to(device)
-        goal = torch.FloatTensor(goal).to(device)
-        for exp in self.replay_buffer.buffer:
-            if tuple(exp[4]) == tuple(goal) and exp[2] <= self.low_h:  #TODO: add limitation of horizon:
-                action = exp[1]
+        current_1d_goal = self.env.location_to_number(goal)
+        if bool(self.goal_list[current_1d_goal]):
+            for exp in self.goal_list[current_1d_goal]:
+                if type(exp) == tuple:
+                    action = exp
+                else:
+                    action = exp[0]
                 possible_suggestions.append(action)
+                state = torch.FloatTensor(state).to(device)
+                goal = torch.FloatTensor(goal).to(device)
                 action = torch.FloatTensor(action).to(device)
-                action_as_goal = torch.FloatTensor(action[:2]).to(device)
+                action_as_goal = torch.FloatTensor(self.env.state_goal_mapper(action)).to(device)
                 state_action = torch.cat([state, action_as_goal], dim=-1)
                 action_goal = torch.cat([action, goal], dim=-1)
                 with torch.no_grad():
                     q_value = self.alg.value(state_action).numpy()[0] + self.alg.value(action_goal).numpy()[0]  # direct estimation of the Q value.
                     q_vals.append(q_value)
+        # for exp in self.replay_buffer.buffer:
+        #     if tuple(exp[4]) == tuple(goal) and exp[2] <= self.low_h:  #TODO: add limitation of horizon:
+        #         action = exp[1]
+        #         possible_suggestions.append(action)
+        #         action = torch.FloatTensor(action).to(device)
+        #         action_as_goal = torch.FloatTensor(action[:2]).to(device)
+        #         state_action = torch.cat([state, action_as_goal], dim=-1)
+        #         action_goal = torch.cat([action, goal], dim=-1)
+        #         with torch.no_grad():
+        #             q_value = self.alg.value(state_action).numpy()[0] + self.alg.value(action_goal).numpy()[0]  # direct estimation of the Q value.
+        #             q_vals.append(q_value)
         if len(q_vals) == 0:
             idx = np.random.randint(0, len(self.replay_buffer.buffer))
             return list(self.replay_buffer.buffer)[idx][1]
@@ -109,6 +124,8 @@ class HighPolicy:
                 for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
                     # Used as intermediate goal or proposed action
                     hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
+                    goal_1d = self.env.location_to_number(hindsight_goal_3)
+
                     state = torch.FloatTensor(state_1).to(device)
                     action_3dim = torch.FloatTensor(next_state_2).to(device)
                     action = torch.FloatTensor(hindsight_goal_2).to(device)
@@ -128,6 +145,8 @@ class HighPolicy:
                                                    next_state_1,  # (NOT USED) next_state
                                                    hindsight_goal_3,  # goal
                                                    True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
+                            # self.goal_list[goal_1d].append([tuple(next_state_1), q1 + q2])
+
                         else:
                             self.replay_buffer.add(tuple(state_1),  # state
                                                    next_state_2,  # action <-> proposed goal
@@ -136,6 +155,9 @@ class HighPolicy:
                                                    next_state_1,  # (NOT USED) next_state
                                                    hindsight_goal_3,  # goal
                                                    True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
+                        if np.abs(j - i) <= self.low_h:
+                            self.goal_list[goal_1d].add(tuple(next_state_1))
+
         self.episode_runs = list()
 
         # for ni in range(len(self.solution)):

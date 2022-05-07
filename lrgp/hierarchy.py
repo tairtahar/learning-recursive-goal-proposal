@@ -45,7 +45,7 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new subgoal
-                    new_goal = self.high.select_action(state, goal)
+                    new_goal = self.high.select_action(state, self.env.state_goal_mapper(goal))
 
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
@@ -183,7 +183,7 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new subgoal
-                    new_goal = self.high.select_action_test(state, goal, add_noise)
+                    new_goal = self.high.select_action_test(state, self.env.state_goal_mapper(goal), add_noise)
                     goal_stack.append(new_goal)
 
                     # If not allowed, add noise to generate an adjacent goal
@@ -303,7 +303,7 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new subgoal
-                    new_goal = self.high.select_action_test(state, goal, add_noise)
+                    new_goal = self.high.select_action_test(state, self.env.state_goal_mapper(goal), add_noise)
 
                     # If not allowed, add noise to generate an adjacent goal
                     # if not self.low.is_allowed(new_goal, 0):
