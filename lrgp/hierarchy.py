@@ -18,7 +18,7 @@ class Hierarchy:
 
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
-
+        self.high.low_h = high_h
         for episode in range(n_episodes):
             # Noise and epsilon for this episode
             epsilon = epsilon_f(episode)
@@ -295,7 +295,7 @@ class Hierarchy:
                 # Check if reachable
                 reachable = self.low.is_reachable(state, goal, 0)
 
-                if not reachable:
+                if not reachable and subgoals_proposed <= high_h and len(goal_stack) < self.max_stack_size:
                     # Check if more proposals available
                     subgoals_proposed += 1
                     if subgoals_proposed > high_h:
