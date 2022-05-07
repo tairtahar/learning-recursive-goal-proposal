@@ -306,17 +306,17 @@ class Hierarchy:
                     new_goal = self.high.select_action_test(state, goal, add_noise)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(new_goal, 0):
-                        add_noise = True
-                        self.env.add_goal(new_goal)
-                        self.env.render()
-                        self.env.remove_goal()
-                        self.env.render()
-                    else:
-                        goal_stack.append(new_goal)
-                        self.env.add_goal(new_goal)
-                        self.env.render()
-                        add_noise = False
+                    # if not self.low.is_allowed(new_goal, 0):
+                    #     add_noise = True
+                    #     self.env.add_goal(new_goal)
+                    #     self.env.render()
+                    #     self.env.remove_goal()
+                    #     self.env.render()
+                    # else:
+                    goal_stack.append(new_goal)
+                    self.env.add_goal(new_goal)
+                    self.env.render()
+                    # add_noise = False
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
@@ -348,6 +348,8 @@ class Hierarchy:
                         if done and len(info) > 0:
                             max_env_steps = True
                             break
+
+                    goal_stack.pop()
 
                     # Run's final state
                     next_state_high = state
