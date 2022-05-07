@@ -1,4 +1,5 @@
 import torch.nn as nn
+import torch.nn.init
 
 
 class FFNetwork(nn.Module):
@@ -18,6 +19,10 @@ class FFNetwork(nn.Module):
 
         # Add output layer
         layers.append(nn.Linear(hidden_dims[-1], output_dim))
+
+        # Tuning the bias of last layer
+        torch.nn.init.uniform_(layers[-1].bias, 0.8, 0.9)
+
 
         # Add output activation
         if output_activation is not None:
