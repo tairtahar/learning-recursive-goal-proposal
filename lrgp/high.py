@@ -63,7 +63,7 @@ class HighPolicy:
                     q_vals.append(q_value)
         if len(q_vals) == 0:
             idx = np.random.randint(0, len(self.replay_buffer.buffer))
-            return self.replay_buffer.buffer[idx][1]
+            return list(self.replay_buffer.buffer)[idx][1]
         max_idx = np.argmax(np.array(q_vals))
         return possible_suggestions[max_idx]
 
