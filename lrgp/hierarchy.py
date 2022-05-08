@@ -51,7 +51,7 @@ class Hierarchy:
                     # Penalize this proposal and avoid adding it to stack
                     if np.array_equal(new_goal, goal) or np.array_equal(new_goal, self.env.state_goal_mapper(state)):
                         # not self.low.is_allowed(new_goal, epsilon)
-                        self.high.add_penalization((tuple(state), new_goal, -high_h, tuple(state),
+                        self.high.add_penalization((tuple(state), tuple(new_goal), -high_h, tuple(state),
                                                     self.env.state_goal_mapper(goal), True))  # ns not used
                     else:
                         goal_stack.append(new_goal)
@@ -109,7 +109,7 @@ class Hierarchy:
 
                     # Add run info for high agent to create transitions
                     if not np.array_equal(state_high, next_state_high):
-                        self.high.add_run_info((state_high, goal, next_state_high))
+                        self.high.add_run_info((tuple(state_high), tuple(goal), next_state_high))
 
                     # Update goal stack
                     while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
