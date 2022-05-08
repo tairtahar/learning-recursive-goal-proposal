@@ -61,9 +61,10 @@ class HighPolicy:
                 action = torch.FloatTensor(action).to(device)
                 action_as_goal = torch.FloatTensor(self.env.state_goal_mapper(action)).to(device)
                 state_action = torch.cat([state, action_as_goal], dim=-1)
+                state_goal = torch.cat([state, goal], dim=-1)
                 action_goal = torch.cat([action, goal], dim=-1)
                 with torch.no_grad():
-                    q_value = self.alg.value(state_action).numpy()[0] + self.alg.value(action_goal).numpy()[0]  # direct estimation of the Q value.
+                    q_value = self.alg.q_2(state_goal, action).numpy()[0] #  + self.alg.value(action_goal).numpy()[0]  # direct estimation of the Q value.
                     q_vals.append(q_value)
         # for exp in self.replay_buffer.buffer:
         #     if tuple(exp[4]) == tuple(goal) and exp[2] <= self.low_h:  #TODO: add limitation of horizon:
@@ -131,17 +132,18 @@ class HighPolicy:
                     action = torch.FloatTensor(hindsight_goal_2).to(device)
                     goal = torch.FloatTensor(hindsight_goal_3).to(device)
                     state_action = torch.cat([state, action], dim=-1)
-                    action_goal = torch.cat([action_3dim, goal], dim=-1)
+                    action_goal = torch.cat([action_3dim, action_3dim], dim=-1)
                     state_goal = torch.cat([state, goal], dim=-1)
                     with torch.no_grad():
-                        q1 = self.alg.value(state_action).numpy()[0]
-                        q2 = self.alg.value(action_goal).numpy()[0]
+                        # q1 = self.alg.value(state_action).numpy()[0]
+                        # q2 = self.alg.value(action_goal).numpy()[0]
+                        q_12 = self.alg.q_2(state_goal, action_3dim).numpy()[0]
                         q3 = self.alg.value(state_goal).numpy()[0]
-                        if q3 < q1 + q2:
+                        if q3 < q_12: #  q1 + q2:
                             self.replay_buffer.add(tuple(state_1),  # state
                                                    next_state_2,  # action <-> proposed goal
                                                    # -(j - i + 1),  # reward <-> - N runs
-                                                   (q1 + q2),
+                                                   q_12,  # (q1 + q2),
                                                    next_state_1,  # (NOT USED) next_state
                                                    hindsight_goal_3,  # goal
                                                    True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
