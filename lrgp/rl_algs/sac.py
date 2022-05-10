@@ -70,6 +70,8 @@ class Critic(nn.Module):
         super().__init__()
 
         self.network = FFNetwork(state_dim, 1, hidden_dims, None, requires_grad).to(device)
+        # Tuning the bias of last layer
+        torch.nn.init.uniform_(self.network.network[-3].bias, -30, -10)
 
     def forward(self, state):
         return self.network(state)
@@ -80,6 +82,8 @@ class Q(nn.Module):
         super().__init__()
 
         self.network = FFNetwork(state_dim + action_dim, 1, hidden_dims, requires_grad=requires_grad).to(device)
+        # Tuning the bias of last layer
+        torch.nn.init.uniform_(self.network.network[-3].bias, -30, -10)
 
     def forward(self, state, action):
         state_action = torch.cat([state, action], dim=-1)

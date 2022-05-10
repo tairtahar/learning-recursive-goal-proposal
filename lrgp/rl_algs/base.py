@@ -20,10 +20,6 @@ class FFNetwork(nn.Module):
         # Add output layer
         layers.append(nn.Linear(hidden_dims[-1], output_dim))
 
-        # Tuning the bias of last layer
-        # torch.nn.init.uniform_(layers[-1].bias, 10, 20)
-
-
         # Add output activation
         if output_activation is not None:
             layers.append(output_activation)

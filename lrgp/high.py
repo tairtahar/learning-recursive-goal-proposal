@@ -60,9 +60,9 @@ class HighPolicy:
                 goal = torch.FloatTensor(goal).to(device)
                 action = torch.FloatTensor(action).to(device)
                 action_as_goal = torch.FloatTensor(self.env.state_goal_mapper(action)).to(device)
-                state_action = torch.cat([state, action_as_goal], dim=-1)
+                # state_action = torch.cat([state, action_as_goal], dim=-1)
                 state_goal = torch.cat([state, goal], dim=-1)
-                action_goal = torch.cat([action, goal], dim=-1)
+                # action_goal = torch.cat([action, goal], dim=-1)
                 with torch.no_grad():
                     q_value = self.alg.q_2(state_goal, action).numpy()[0] #  + self.alg.value(action_goal).numpy()[0]  # direct estimation of the Q value.
                     q_vals.append(q_value)
@@ -131,8 +131,8 @@ class HighPolicy:
                     action_3dim = torch.FloatTensor(next_state_2).to(device)
                     action = torch.FloatTensor(hindsight_goal_2).to(device)
                     goal = torch.FloatTensor(hindsight_goal_3).to(device)
-                    state_action = torch.cat([state, action], dim=-1)
-                    action_goal = torch.cat([action_3dim, action_3dim], dim=-1)
+                    # state_action = torch.cat([state, action], dim=-1)
+                    # action_goal = torch.cat([action_3dim, action_3dim], dim=-1)
                     state_goal = torch.cat([state, goal], dim=-1)
                     with torch.no_grad():
                         # q1 = self.alg.value(state_action).numpy()[0]
