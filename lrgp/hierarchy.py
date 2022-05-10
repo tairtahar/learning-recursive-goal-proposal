@@ -314,7 +314,7 @@ class Hierarchy:
                     #     self.env.render()
                     # else:
                     goal_stack.append(new_goal)
-                    self.env.add_goal(new_goal)
+                    self.env.add_goal(self.env.state_goal_mapper(new_goal))
                     self.env.render()
                     # add_noise = False
 
@@ -330,7 +330,7 @@ class Hierarchy:
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
-                        action = self.low.select_action(state, goal, 0)
+                        action = self.low.select_action(state, self.env.state_goal_mapper(goal), 0)
                         next_state, reward, done, info = self.env.step(action)
                         self.env.render()
                         achieved = self._goal_achived(next_state, goal)
