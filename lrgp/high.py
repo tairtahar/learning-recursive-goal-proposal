@@ -43,8 +43,8 @@ class HighPolicy:
 
     def select_action(self, state: np.ndarray, goal: np.ndarray) -> np.ndarray:
         if self.replay_buffer.__len__() == 0:  # for the first steps, high buffer still empty
-            action = np.random.uniform(-1, 1, size=(3, 1))
-            action = action * self.action_bound + self.action_offset
+            action = np.random.uniform(-1, 1, size=(1, 3))
+            action = np.multiply(action, self.action_bound) + self.action_offset
             return action.astype(np.int)[0]
         possible_suggestions = []
         q_vals = []
@@ -59,7 +59,7 @@ class HighPolicy:
                 state = torch.FloatTensor(state).to(device)
                 goal = torch.FloatTensor(goal).to(device)
                 action = torch.FloatTensor(action).to(device)
-                action_as_goal = torch.FloatTensor(self.env.state_goal_mapper(action)).to(device)
+                #action_as_goal = torch.FloatTensor(self.env.state_goal_mapper(action)).to(device)
                 # state_action = torch.cat([state, action_as_goal], dim=-1)
                 state_goal = torch.cat([state, goal], dim=-1)
                 # action_goal = torch.cat([action, goal], dim=-1)
@@ -125,7 +125,6 @@ class HighPolicy:
                 for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
                     # Used as intermediate goal or proposed action
                     hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
-                    goal_1d = self.env.location_to_number(hindsight_goal_3)
 
                     state = torch.FloatTensor(state_1).to(device)
                     action_3dim = torch.FloatTensor(next_state_2).to(device)
@@ -158,7 +157,8 @@ class HighPolicy:
                         #                            hindsight_goal_3,  # goal
                         #                            True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
                         if np.abs(j - i) <= self.low_h:
-                            self.goal_list[goal_1d].add(tuple(next_state_1))
+                            goal_1d = self.env.location_to_number(hindsight_goal_3)
+                            self.goal_list[goal_1d].add(tuple(state_1))
 
         self.episode_runs = list()
 
