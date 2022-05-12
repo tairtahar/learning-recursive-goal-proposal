@@ -11,8 +11,8 @@ class ReplayBuffer:
     def add(self, *args):
         if len(self.buffer) < self.max_size:
             self.buffer.append(None)
-        else:
-            print("max buffer " + str(self.max_size))
+        # else:
+        #     print("max buffer " + str(self.max_size))
         self.buffer[self.position] = args
         # self.buffer.add(args)
         # if len(self.buffer) < self.max_size:
