@@ -19,3 +19,10 @@ plt.xlabel('Episode')
 plt.ylabel('Success Rate')
 plt.title('Success ratio along training')
 plt.show()
+
+
+plt.plot(x,data[:,7])
+plt.xlabel('Episode')
+plt.ylabel('LOW Success Rate')
+plt.title('Lower policy Success ratio along training')
+plt.show()
