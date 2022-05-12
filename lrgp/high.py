@@ -41,11 +41,20 @@ class HighPolicy:
         self.solution = list()
         self.low_h = 0
 
-    def select_action(self, state: np.ndarray, goal: np.ndarray) -> np.ndarray:
+    def select_action(self, state: np.ndarray, goal: np.ndarray) -> np.ndarray:  # , epsilon : float
         if self.replay_buffer.__len__() == 0:  # for the first steps, high buffer still empty
-            action = np.random.uniform(-1, 1, size=(1, 3))
-            action = np.multiply(action, self.action_bound) + self.action_offset
-            return action.astype(np.int)[0]
+            # action = np.random.uniform(-1, 1, size=(1, 3))
+            # action = np.multiply(action, self.action_bound) + self.action_offset
+            # SAC action is continuous [low, high + 1]
+            action = self.alg.select_action(state, goal, False)
+            # Discretize using floor --> discrete [low, high + 1]
+            action = np.floor(action)
+            # In case action was exactly high + 1, it is out of bounds. Clip
+            action = np.clip(action, self.clip_low, self.clip_high)
+            return action.astype(np.int)  # [0]
+        # if np.random.random() < epsilon:
+        #     action = self.env.observation_space.sample()
+        #     return action
         possible_suggestions = []
         q_vals = []
         current_1d_goal = self.env.location_to_number(goal)
@@ -56,30 +65,23 @@ class HighPolicy:
                 else:
                     action = exp[0]
                 possible_suggestions.append(action)
-                state = torch.FloatTensor(state).to(device)
-                goal = torch.FloatTensor(goal).to(device)
-                action = torch.FloatTensor(action).to(device)
-                #action_as_goal = torch.FloatTensor(self.env.state_goal_mapper(action)).to(device)
-                # state_action = torch.cat([state, action_as_goal], dim=-1)
-                state_goal = torch.cat([state, goal], dim=-1)
-                # action_goal = torch.cat([action, goal], dim=-1)
+                state_tensor = torch.FloatTensor(state).to(device)
+                goal_tensor = torch.FloatTensor(goal).to(device)
+                action_tensor = torch.FloatTensor(action).to(device)
+                state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
                 with torch.no_grad():
-                    q_value = self.alg.q_2(state_goal, action).numpy()[0] #  + self.alg.value(action_goal).numpy()[0]  # direct estimation of the Q value.
+                    q_value = self.alg.q_2(state_goal, action_tensor).numpy()[0] #  + self.alg.value(action_goal).numpy()[0]  # direct estimation of the Q value.
                     q_vals.append(q_value)
-        # for exp in self.replay_buffer.buffer:
-        #     if tuple(exp[4]) == tuple(goal) and exp[2] <= self.low_h:  #TODO: add limitation of horizon:
-        #         action = exp[1]
-        #         possible_suggestions.append(action)
-        #         action = torch.FloatTensor(action).to(device)
-        #         action_as_goal = torch.FloatTensor(action[:2]).to(device)
-        #         state_action = torch.cat([state, action_as_goal], dim=-1)
-        #         action_goal = torch.cat([action, goal], dim=-1)
-        #         with torch.no_grad():
-        #             q_value = self.alg.value(state_action).numpy()[0] + self.alg.value(action_goal).numpy()[0]  # direct estimation of the Q value.
-        #             q_vals.append(q_value)
         if len(q_vals) == 0:
-            idx = np.random.randint(0, len(self.replay_buffer.buffer))
-            return list(self.replay_buffer.buffer)[idx][1]
+            # SAC action is continuous [low, high + 1]
+            action = self.alg.select_action(state, goal, False)
+            # Discretize using floor --> discrete [low, high + 1]
+            action = np.floor(action)
+            # In case action was exactly high + 1, it is out of bounds. Clip
+            action = np.clip(action, self.clip_low, self.clip_high)
+            return action.astype(np.int)  # [0]
+            # idx = np.random.randint(0, len(self.replay_buffer.buffer))
+            # return list(self.replay_buffer.buffer)[idx][1]
         max_idx = np.argmax(np.array(q_vals))
         return possible_suggestions[max_idx]
 
@@ -156,9 +158,13 @@ class HighPolicy:
                         #                            next_state_1,  # (NOT USED) next_state
                         #                            hindsight_goal_3,  # goal
                         #                            True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
-                        if np.abs(j - i) <= self.low_h:
-                            goal_1d = self.env.location_to_number(hindsight_goal_3)
-                            self.goal_list[goal_1d].add(tuple(state_1))
+                        if np.abs(j - i) <= self.low_h*4:  #
+                            if state_1 != next_state_1:
+                                goal_1d = self.env.location_to_number(next_state_1)
+                                self.goal_list[goal_1d].add(tuple(state_1))
+                            if state_1 != next_state_3:
+                                goal_1d = self.env.location_to_number(hindsight_goal_3)
+                                self.goal_list[goal_1d].add(tuple(state_1))
 
         self.episode_runs = list()
 
