@@ -18,7 +18,7 @@ class Hierarchy:
 
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
-        self.high.low_h = high_h
+        self.high.low_h = low_h
         for episode in range(n_episodes):
             # Noise and epsilon for this episode
             epsilon = epsilon_f(episode)
@@ -38,7 +38,7 @@ class Hierarchy:
                 # Check if reachable
                 reachable = self.low.is_reachable(state, goal, epsilon)
 
-                if not reachable and subgoals_proposed <= high_h and len(goal_stack) < self.max_stack_size:
+                if not reachable and len(goal_stack) < self.max_stack_size:  # subgoals_proposed <= high_h and - can be deleted
                     # Check if more proposals available
                     subgoals_proposed += 1
                     if subgoals_proposed > high_h:
@@ -161,7 +161,6 @@ class Hierarchy:
             # Init episode variables
             subgoals_proposed = 0
             low_steps_ep = 0
-            max_env_steps = False
             max_env_steps = max_subgoals_proposed = low_stuck = add_noise = False
 
             # Generate env initialization
@@ -170,6 +169,8 @@ class Hierarchy:
 
             # Start LRGP
             while True:
+                if len(goal_stack) == 0:
+                    break
                 goal = goal_stack[-1]
 
                 # Check if reachable
@@ -223,7 +224,7 @@ class Hierarchy:
                             max_env_steps = True
                             break
 
-                    goal_stack.pop()
+                    # goal_stack.pop()
 
                     # Run's final state
                     next_state_high = state
