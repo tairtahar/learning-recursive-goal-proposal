@@ -240,6 +240,13 @@ class SACStateGoal(Algorithm):
         self.value_loss = nn.MSELoss()
         self.value_optimizer = optim.AdamW(self.value.parameters(), critic_lr)
 
+        # Init Critic2
+        self.value2 = Critic(state_dim + goal_dim, critic_hidden_dims).to(device)
+        self.value_target2 = Critic(state_dim + goal_dim, critic_hidden_dims, False).to(device)
+        self.copy_parameters(self.value2, self.value_target2)
+        self.value_loss2 = nn.MSELoss()
+        self.value_optimizer2 = optim.AdamW(self.value.parameters(), critic_lr)
+
         # Init Q networks
         self.q_1 = Q(state_dim + goal_dim, action_dim, q_hidden_dims)
         self.q_1_optimizer = optim.AdamW(self.q_1.parameters(), q_lr)
@@ -306,6 +313,13 @@ class SACStateGoal(Algorithm):
         self.value_optimizer.zero_grad()
         v_loss.backward()
         self.value_optimizer.step()
+
+        #Train value2 network
+        # state_action = torch.cat([state, action], dim=-1)
+        # action_goal = torch.cat([action, goal], dim=-1)
+        #
+        # q_value = self.value(state_action) + self.value(action_goal)
+
 
         # Train Actor network
         policy_loss = (self.alpha * log_prob - q_value).mean()
