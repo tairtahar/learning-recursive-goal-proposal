@@ -13,7 +13,7 @@ class Hierarchy:
         self.env = env
         self.low = LowPolicy(env)
         self.high = HighPolicy(env)
-        self.max_stack_size = 10  # TODO: add this to argparse
+        self.max_stack_size = 20  # TODO: add this to argparse
 
         self.logs = list()
 
@@ -39,20 +39,20 @@ class Hierarchy:
                 # Check if reachable
                 reachable = self.low.is_reachable(state, goal, epsilon)
 
-                if not reachable and len(goal_stack) <= self.max_stack_size:
+                if not reachable: # and len(goal_stack) <= self.max_stack_size:
                     # Check if more proposals available
                     subgoals_proposed += 1
                     if subgoals_proposed > high_h:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new subgoal
-                    new_goal = self.high.select_action(state, self.env.state_goal_mapper(goal))
-
+                    new_goal = self.high.select_action(state, self.env.state_goal_mapper(goal), epsilon=epsilon)
+                    new_goal2dim = self.env.state_goal_mapper(new_goal)
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
-                    if not self.low.is_allowed(new_goal, epsilon) or \
-                            np.array_equal(new_goal, goal) or \
-                            np.array_equal(new_goal, self.env.state_goal_mapper(state)):
+                    # if not self.low.is_allowed(new_goal2dim, epsilon) or \
+                    if np.array_equal(new_goal2dim, self.env.state_goal_mapper(goal)) or \
+                            np.array_equal(new_goal2dim, self.env.state_goal_mapper(state)):
                         self.high.add_penalization((state, new_goal, -high_h, state, self.env.state_goal_mapper(goal), True))  # ns not used
                     else:
                         goal_stack.append(new_goal)
@@ -97,6 +97,7 @@ class Hierarchy:
                             max_env_steps = True
                             break
 
+                    # goal_stack.pop()
                     # Run's final state
                     next_state_high = state
 
@@ -122,9 +123,8 @@ class Hierarchy:
                     elif max_env_steps:
                         break
 
-                    elif len(self.high.episode_runs) > 2 * high_h:
-                        max_runs = True
-                        break
+                    # elif len(self.high.episode_runs) > 4 * high_h:
+                    #     break
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
             self.high.on_episode_end()
             self.low.on_episode_end()
@@ -176,7 +176,7 @@ class Hierarchy:
                 # Check if reachable
                 reachable = self.low.is_reachable(state, goal, 0)
 
-                if not reachable and len(goal_stack) <= self.max_stack_size:
+                if not reachable: # and len(goal_stack) <= self.max_stack_size:
                     # Check if more proposals available
                     subgoals_proposed += 1
                     if subgoals_proposed > high_h:
@@ -184,7 +184,7 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new subgoal
-                    new_goal = self.high.select_action_test(state, self.env.state_goal_mapper(goal), add_noise)
+                    new_goal = self.high.select_action_test(state, self.env.state_goal_mapper(goal), 0)
 
                     # If not allowed, add noise to generate an adjacent goal
                     if not self.low.is_allowed(new_goal, 0):

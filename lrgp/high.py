@@ -37,8 +37,8 @@ class HighPolicy:
         self.low_h = 0
         self.episode_runs = list()
 
-    def select_action(self, state: np.ndarray, goal: np.ndarray) -> np.ndarray:
-        if self.replay_buffer.__len__() == 0:  # for the first steps, high buffer still empty
+    def select_action(self, state: np.ndarray, goal: np.ndarray, epsilon=0) -> np.ndarray:
+        if self.replay_buffer.__len__() == 0 or np.random.random() < epsilon:  # for the first steps, high buffer still empty
             # action = np.random.uniform(-1, 1, size=(1, 3))
             # action = np.multiply(action, self.action_bound) + self.action_offset
             # SAC action is continuous [low, high + 1]
@@ -72,7 +72,7 @@ class HighPolicy:
                     q_value = self.alg.value(state_action).numpy()[0] + self.alg.value(action_goal).numpy()[0]
                     # q_value = self.alg.value2(state_goal, action_tensor).numpy()[0] #  + self.alg.value(action_goal).numpy()[0]  # direct estimation of the Q value.
                     q_vals.append(q_value)
-        if len(q_vals) == 0:
+        else:
             # SAC action is continuous [low, high + 1]
             action = self.alg.select_action(state, goal, False)
             # Discretize using floor --> discrete [low, high + 1]
@@ -128,10 +128,10 @@ class HighPolicy:
                                            hindsight_goal_3,    # goal
                                            True)                # done --> Q-value = Reward (no bootstrap / Bellman eq)
 
-                    if np.abs(j - i) <= self.low_h * 4:  #
-                        if tuple(state_1) != tuple(next_state_1):
-                            goal_1d = self.env.location_to_number(next_state_1)
-                            self.goal_list[goal_1d].add(tuple(state_1))
+                    if tuple(state_1) != tuple(next_state_1):
+                        goal_1d = self.env.location_to_number(self.env.state_goal_mapper(next_state_1))
+                        self.goal_list[goal_1d].add(tuple(state_1))
+                    if (j - i + 1) <= 6:  # TODO: make this adjustable
                         if tuple(state_1) != tuple(next_state_3):
                             goal_1d = self.env.location_to_number(hindsight_goal_3)
                             self.goal_list[goal_1d].add(tuple(state_1))
