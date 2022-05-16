@@ -29,6 +29,7 @@ class HighPolicy:
         self.clip_high = action_high
 
         self.replay_buffer = ReplayBuffer(br_size)
+        self.goal_list = [set() for _ in range(self.env.height*self.env.width)]
 
         self.episode_runs = list()
 

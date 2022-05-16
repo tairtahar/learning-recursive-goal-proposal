@@ -4,6 +4,7 @@ import gym
 import gym_simple_minigrid  # just to register envs
 import numpy as np
 import torch
+from lrgp.sample_goals import Sample_goal
 
 from lrgp.hierarchy import Hierarchy
 
@@ -46,8 +47,8 @@ epsilon_f = lambda i: args['epsilon_min'] + (args['epsilon_max'] - args['epsilon
 
 # Train
 print(f"Running {args['job_name']}...")
-learner = Hierarchy(env)
-learner.train(**args, epsilon_f=epsilon_f)
+learner = Sample_goal(env)
+learner.train(**args, n_samples=500, epsilon_f=epsilon_f)
 
 # Save checkpoints and logs
 learner.save(os.path.join('logs', args['job_name']))
