@@ -39,6 +39,7 @@ class Sample_goal:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
+            ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             goal_stack = [ep_goal]
 
             # Start LRGP
@@ -61,7 +62,7 @@ class Sample_goal:
                     # Penalize this proposal and avoid adding it to stack
                     if not self.low.is_allowed(new_goal, epsilon) or \
                             np.array_equal(new_goal, goal) or \
-                            np.array_equal(new_goal, self.env.state_goal_mapper(state)):
+                            np.array_equal(new_goal, state):
                         self.high.add_penalization((state, new_goal, -high_h, state, goal, True))  # ns not used
                     else:
                         goal_stack.append(new_goal)
@@ -79,7 +80,7 @@ class Sample_goal:
                     # Add state to compute reachable pairs
                     self.low.add_run_step(state)
                     # Add current position as allowed goal to overcome the incomplete goal space problem
-                    self.low.add_allowed_goal(self.env.state_goal_mapper(state))
+                    self.low.add_allowed_goal(state)
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
@@ -93,7 +94,7 @@ class Sample_goal:
 
                         # Add info to reachable and allowed buffers
                         self.low.add_run_step(state)
-                        self.low.add_allowed_goal(self.env.state_goal_mapper(state))
+                        self.low.add_allowed_goal(state)
 
                         # Don't count turns
                         if action == SimpleMiniGridEnv.Actions.forward:
@@ -112,8 +113,6 @@ class Sample_goal:
                     # Create reachable transitions from run info
                     self.low.create_reachable_transitions(goal, achieved)
 
-                    # We enforce a goal to be different from current state or previous goal, the agent MUST have moved
-                    assert low_steps != 0
 
                     # Add run info for high agent to create transitions
                     if not np.array_equal(state_high, next_state_high):
@@ -122,6 +121,9 @@ class Sample_goal:
                     # Update goal stack
                     while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
                         goal_stack.pop()
+
+                    # We enforce a goal to be different from current state or previous goal, the agent MUST have moved
+                    assert low_steps != 0
 
                     # Check episode completed successfully
                     if len(goal_stack) == 0:
@@ -167,6 +169,7 @@ class Sample_goal:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
+            ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             goal_stack = [ep_goal]
 
             # Start LRGP
@@ -269,27 +272,27 @@ class Sample_goal:
         for sample in range(n_samples):
             epsilon = epsilon_f(sample)
             state, ep_goal = self.env.reset()
-            goal = ep_goal
+            goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
+            # goal = ep_goal
             solution = [tuple(state)]
             achieved = self._goal_achived(state, goal)
             if not achieved:
                 for run_iter in range(5):
                     last_state, max_env_steps = self.run_setps(state, goal, low_h, epsilon)
                     self.low.create_reachable_transitions(goal, achieved)
-                    goal = self.env.state_goal_mapper(state)
+                    goal = state
                     state = last_state
                     solution.append(tuple(last_state))
 
             self.low.on_episode_end()
-            n = len(solution)
             solution.reverse()
             for i, element in enumerate(solution):
-                goal_1dim = self.env.location_to_number(self.env.state_goal_mapper(element))
+                goal_1dim = self.env.location_to_number(element)
                 for j in range(1, len(solution)-i):
                     if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i+j]):
-                        self.high.goal_list[goal_1dim].add(self.env.state_goal_mapper(solution[i+j]))
+                        self.high.goal_list[goal_1dim].add(solution[i+j])
                         curr_state_1dim = self.env.location_to_number(solution[i+j])
-                        self.high.goal_list[curr_state_1dim].add(self.env.state_goal_mapper(element))
+                        self.high.goal_list[curr_state_1dim].add(element)
                     if j >= low_h:
                         break
 
@@ -370,7 +373,7 @@ class Sample_goal:
             return True, path
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
-        return np.array_equal(self.env.state_goal_mapper(state), goal)
+        return np.array_equal(state, goal)
 
     def calc_q_vals(self, state, action, goal):
         state_tensor = torch.FloatTensor(state).to(device)
@@ -397,18 +400,18 @@ class Sample_goal:
         max_env_steps = False
         achieved = self._goal_achived(state, goal)
         while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
-            action = self.low.select_action(state, self.env.state_goal_mapper(goal), epsilon)
+            action = self.low.select_action(state, goal, epsilon)
             next_state, reward, done, info = self.env.step(action)
             # Check if last subgoal is achieved (not episode's goal)
             achieved = self._goal_achived(next_state, goal)
             self.low.add_transition(
-                (state, action, int(achieved) - 1, next_state, self.env.state_goal_mapper(goal), achieved))
+                (state, action, int(achieved) - 1, next_state, goal, achieved))
 
             state = next_state
 
             # Add info to reachable and allowed buffers
             self.low.add_run_step(state)
-            self.low.add_allowed_goal(self.env.state_goal_mapper(state))
+            self.low.add_allowed_goal(state)
 
             # Don't count turns
             if action == SimpleMiniGridEnv.Actions.forward:

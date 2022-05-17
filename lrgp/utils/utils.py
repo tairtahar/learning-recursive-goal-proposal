@@ -63,9 +63,10 @@ class HERTransitionCreator:
             # Take its next_state
             next_state = self.original_transitions[future].next_state
             # Convert into goal-space and set as goal for current transition
-            t.goal = self.state_goal_mapper(next_state)
+            # t.goal = self.state_goal_mapper(next_state)
+            t.goal = next_state
             # Compute binary reward --> If new goal was achieved in that transition 0, else -1
-            t.reward = int(np.array_equal(self.state_goal_mapper(t.next_state), t.goal)) - 1
+            t.reward = int(np.array_equal(t.next_state, t.goal)) - 1
 
             # Add to replay buffer (original transitions were already added)
             replay_buffer.add(*t.to_tup())
