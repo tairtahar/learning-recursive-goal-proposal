@@ -25,35 +25,120 @@ class Sample_goal:
         self.scan_in_level = []
 
 
-    def train(self, n_episodes: int, n_samples: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
+    def train(self, n_sample_low: int, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
-        # Low policy random walk to sample the env and collect neigborhoods
-        self.low_policy_learning(n_samples=n_samples, low_h=low_h, update_each=update_each, n_updates=n_updates,
-                                 batch_size=batch_size, epsilon_f=epsilon_f)
 
-        # high policy training
+        self.low_policy_learning(n_sample_low, low_h, update_each, n_updates, batch_size, epsilon_f)
         for episode in range(n_episodes):
-            state, goal = self.env.reset()
-            recurse_lim = 5  # TODO: add this to argparse
-            state_1dim = self.env.location_to_number(state)
-            if not tuple(self.env.state_goal_mapper(goal)) in self.high.goal_list[state_1dim]:
-                while True:
-                    path = []
-                    self.success_flag = False
-                    self.scan_in_level = [set() for _ in range(recurse_lim+1)]
-                    self.recursive_intersect(state, goal, path, recurse_lim)
-                    if self.success_flag:
-                        idx_best = np.argmax(self.q_possible_path)
-                        self.store_path(idx_best)
-                        break
+            # Noise and epsilon for this episode
+            epsilon = epsilon_f(episode)
+
+            # Init episode variables
+            subgoals_proposed = 0
+            max_env_steps = False
+
+            # Generate env initialization
+            state, ep_goal = self.env.reset()
+            goal_stack = [ep_goal]
+
+            # Start LRGP
+            while True:
+                goal = goal_stack[-1]
+
+                # Check if reachable
+                reachable = self.low.is_reachable(state, goal, epsilon)
+
+                if not reachable:
+                    # Check if more proposals available
+                    subgoals_proposed += 1
+                    if subgoals_proposed > high_h:
+                        break  # Too many proposals. Break and move to another episode
+
+                    # Ask for a new subgoal
+                    new_goal = self.high.select_action(state, goal)
+
+                    # Bad proposals --> Same state, same goal or forbidden goal
+                    # Penalize this proposal and avoid adding it to stack
+                    if not self.low.is_allowed(new_goal, epsilon) or \
+                            np.array_equal(new_goal, goal) or \
+                            np.array_equal(new_goal, self.env.state_goal_mapper(state)):
+                        self.high.add_penalization((state, new_goal, -high_h, state, goal, True))  # ns not used
                     else:
-                        self.low_policy_learning(n_samples=50, low_h=low_h, update_each=update_each, n_updates=n_updates,
-                                             batch_size=batch_size, epsilon_f=epsilon_f)  # TODO: n_sampels to argparse
+                        goal_stack.append(new_goal)
+
+                else:
+                    # Reachable. Apply a run of max low_h low actions
+                    # Store run's initial state
+                    state_high = state
+
+                    # Init run variables
+                    achieved = self._goal_achived(state, goal)
+                    low_fwd = 0
+                    low_steps = 0
+
+                    # Add state to compute reachable pairs
+                    self.low.add_run_step(state)
+                    # Add current position as allowed goal to overcome the incomplete goal space problem
+                    self.low.add_allowed_goal(self.env.state_goal_mapper(state))
+
+                    # Apply steps
+                    while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
+                        action = self.low.select_action(state, goal, epsilon)
+                        next_state, reward, done, info = self.env.step(action)
+                        # Check if last subgoal is achieved (not episode's goal)
+                        achieved = self._goal_achived(next_state, goal)
+                        self.low.add_transition((state, action, int(achieved) - 1, next_state, goal, achieved))
+
+                        state = next_state
+
+                        # Add info to reachable and allowed buffers
+                        self.low.add_run_step(state)
+                        self.low.add_allowed_goal(self.env.state_goal_mapper(state))
+
+                        # Don't count turns
+                        if action == SimpleMiniGridEnv.Actions.forward:
+                            low_fwd += 1
+                        # Max steps to avoid getting stuck
+                        low_steps += 1
+
+                        # Max env steps
+                        if done and len(info) > 0:
+                            max_env_steps = True
+                            break
+
+                    # Run's final state
+                    next_state_high = state
+
+                    # Create reachable transitions from run info
+                    self.low.create_reachable_transitions(goal, achieved)
+
+                    # We enforce a goal to be different from current state or previous goal, the agent MUST have moved
+                    assert low_steps != 0
+
+                    # Add run info for high agent to create transitions
+                    if not np.array_equal(state_high, next_state_high):
+                        self.high.add_run_info((state_high, goal, next_state_high))
+
+                    # Update goal stack
+                    while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
+                        goal_stack.pop()
+
+                    # Check episode completed successfully
+                    if len(goal_stack) == 0:
+                        break
+
+                    # Check episode completed due to Max Env Steps
+                    elif max_env_steps:
+                        break
+
+            # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
+            self.high.on_episode_end()
+            self.low.on_episode_end()
 
             # Update networks / policies
             if (episode + 1) % update_each == 0:
                 self.high.update(n_updates, batch_size)
-                # self.low.update(n_updates, batch_size)
+                self.low.update(n_updates, batch_size)
 
             # Test to validate training
             if (episode + 1) % test_each == 0:
@@ -62,8 +147,6 @@ class Sample_goal:
                 self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr,
                                   len(self.high.replay_buffer), len(self.low.replay_buffer),
                                   len(self.low.reachable_buffer), len(self.low.allowed_buffer)])
-
-            # print(self.possible_path[idx_best])
 
     def _test(self, n_episodes: int, low_h: int, high_h: int) -> Tuple[np.ndarray, ...]:
 

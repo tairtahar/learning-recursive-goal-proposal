@@ -48,7 +48,7 @@ epsilon_f = lambda i: args['epsilon_min'] + (args['epsilon_max'] - args['epsilon
 # Train
 print(f"Running {args['job_name']}...")
 learner = Sample_goal(env)
-learner.train(**args, n_samples=500, epsilon_f=epsilon_f)
+learner.train(**args, n_sample_low=500, epsilon_f=epsilon_f)
 
 # Save checkpoints and logs
 learner.save(os.path.join('logs', args['job_name']))
