@@ -61,17 +61,9 @@ class HighPolicy:
                 else:
                     action = exp[0]
                 possible_suggestions.append(action)
-                state_tensor = torch.FloatTensor(state).to(device)
-                goal_tensor = torch.FloatTensor(goal).to(device)
-                action_tensor = torch.FloatTensor(action).to(device)
-                action2d_tensor = torch.FloatTensor(self.env.state_goal_mapper(action)).to(device)
-                state_action = torch.cat([state_tensor, action2d_tensor], dim=-1)
-                action_goal = torch.cat([action_tensor, goal_tensor], dim=-1)
-                state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
-                with torch.no_grad():
-                    q_value = self.alg.value(state_action).numpy()[0] + self.alg.value(action_goal).numpy()[0]
+                q_value = self.calc_v_value(state, action) + self.calc_v_value(action, goal)
                     # q_value = self.alg.value2(state_goal, action_tensor).numpy()[0] #  + self.alg.value(action_goal).numpy()[0]  # direct estimation of the Q value.
-                    q_vals.append(q_value)
+                q_vals.append(q_value)
         else:
             # SAC action is continuous [low, high + 1]
             action = self.alg.select_action(state, goal, False)
@@ -85,6 +77,23 @@ class HighPolicy:
         max_idx = np.argmax(np.array(q_vals))
         return possible_suggestions[max_idx]
 
+    def calc_v_value(self, state, goal):
+        with torch.no_grad():
+            state_tensor = torch.FloatTensor(state).to(device)
+            goal_tensor = torch.FloatTensor(self.env.state_goal_mapper(goal)).to(device)
+            state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
+            q_value = self.alg.value(state_goal).numpy()[0]
+            return q_value
+
+    def calc_q_value(self, state, action, goal):
+        state_tensor = torch.FloatTensor(state).to(device)
+        goal_tensor = torch.FloatTensor(goal).to(device)
+        action2d_tensor = torch.FloatTensor(self.env.state_goal_mapper(action)).to(device)
+        state_action = torch.cat([state_tensor, action2d_tensor], dim=-1)
+        state_action_goal = torch.cat([state_action, goal_tensor], dim=-1)
+        with torch.no_grad:
+            q_value = self.alg.q_2(state_action_goal).numpy()[0]
+        return q_value
 
     def select_action_test(self, state: np.ndarray, goal: np.ndarray, add_noise: bool = False) -> np.ndarray:
         # action = self.alg.select_action(state, goal, True)
