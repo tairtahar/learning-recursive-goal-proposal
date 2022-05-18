@@ -35,6 +35,7 @@ args = vars(args)
 
 # Make env
 env = gym.make(args['env'])
+env.max_steps = 50
 
 # Seed everything
 env.seed(args['seed'])
@@ -48,7 +49,7 @@ epsilon_f = lambda i: args['epsilon_min'] + (args['epsilon_max'] - args['epsilon
 # Train
 print(f"Running {args['job_name']}...")
 learner = Sample_goal(env)
-learner.train(**args, n_sample_low=0, epsilon_f=epsilon_f)
+learner.train(**args, n_sample_low=300, epsilon_f=epsilon_f)
 
 # Save checkpoints and logs
 learner.save(os.path.join('logs', args['job_name']))

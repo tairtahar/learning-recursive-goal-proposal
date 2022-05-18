@@ -1,9 +1,10 @@
 import numpy as np
 from gym_simple_minigrid.minigrid import SimpleMiniGridEnv
+import torch
 
 from .rl_algs.sac import SACStateGoal
 from .utils.utils import ReplayBuffer
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class HighPolicy:
     def __init__(self, env: SimpleMiniGridEnv, gamma: float = 1., tau: float = 0.005, br_size: int = 1e6):
@@ -42,28 +43,55 @@ class HighPolicy:
 
     def select_action(self, state: np.ndarray, goal: np.ndarray) -> np.ndarray:
         # SAC action is continuous [low, high + 1]
-        action = self.alg.select_action(state, goal, False)
-        # Discretize using floor --> discrete [low, high + 1]
-        action = np.floor(action)
-        # In case action was exactly high + 1, it is out of bounds. Clip
-        action = np.clip(action, self.clip_low, self.clip_high)
+        # action = self.alg.select_action(state, goal, False)
+        # # Discretize using floor --> discrete [low, high + 1]
+        # action = np.floor(action)
+        # # In case action was exactly high + 1, it is out of bounds. Clip
+        # action = np.clip(action, self.clip_low, self.clip_high)
+        #
+        # return action.astype(np.int)
 
-        return action.astype(np.int)
+        #
+        possible_suggestions = []
+        q_vals = []
+        current_1d_goal = self.env.location_to_number(goal)
+        if bool(self.goal_list[current_1d_goal]):
+            for exp in self.goal_list[current_1d_goal]:
+                if type(exp) == tuple:
+                    action = exp
+                else:
+                    action = exp[0]
+                possible_suggestions.append(action)
+                q_value = self.calc_v_vals(state, action) + self.calc_v_vals(action, goal)
+                q_vals.append(q_value)
+        if len(q_vals) == 0:
+            # SAC action is continuous [low, high + 1]
+            action = self.alg.select_action(state, goal, False)
+            # Discretize using floor --> discrete [low, high + 1]
+            action = np.floor(action)
+            # In case action was exactly high + 1, it is out of bounds. Clip
+            action = np.clip(action, self.clip_low, self.clip_high)
+            return action.astype(np.int)  # [0]
+            # idx = np.random.randint(0, len(self.replay_buffer.buffer))
+            # return list(self.replay_buffer.buffer)[idx][1]
+        max_idx = np.argmax(np.array(q_vals))
+        return possible_suggestions[max_idx]
 
     def select_action_test(self, state: np.ndarray, goal: np.ndarray, add_noise: bool = False) -> np.ndarray:
-        action = self.alg.select_action(state, goal, True)
-
-        noise = 0
-        if add_noise:
-            # Add small noise so we choose an adjacent goal position
-            noise = np.random.randint(-1, 2, action.shape)
-        action = action + noise
-
-        # Discretize and clip
-        action = np.floor(action)
-        action = np.clip(action, self.clip_low, self.clip_high)
-
-        return action.astype(np.int)
+        action = self.select_action(state, goal)
+        return action
+        # #
+        # noise = 0
+        # if add_noise:
+        #     # Add small noise so we choose an adjacent goal position
+        #     noise = np.random.randint(-1, 2, action.shape)
+        # action = action + noise
+        #
+        # # Discretize and clip
+        # action = np.floor(action)
+        # action = np.clip(action, self.clip_low, self. clip_high)
+        #
+        # return action.astype(np.int)
 
     def add_run_info(self, info: tuple):
         self.episode_runs.append(info)
@@ -71,7 +99,18 @@ class HighPolicy:
     def add_penalization(self, transition: tuple):
         self.replay_buffer.add(*transition)
 
-    def on_episode_end(self):
+    def on_episode_end(self, solution: list, low_h: int):
+        solution.reverse()
+        for i, element in enumerate(solution):
+            goal_1dim = self.env.location_to_number(element)
+            for j in range(1, len(solution) - i):
+                if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
+                    self.goal_list[goal_1dim].add(solution[i + j])
+                    curr_state_1dim = self.env.location_to_number(solution[i + j])
+                    self.goal_list[curr_state_1dim].add(element)
+                if j >= low_h:  # TODO: Make adjustable, argparse?
+                    break
+
         # Create MonteCarlo-based transitions from episode runs
         # Hindsight goals --> Next state as proposed goal (as if low level acts optimally)
 
@@ -92,6 +131,27 @@ class HighPolicy:
                                            next_state_3,    # goal
                                            True)                # done --> Q-value = Reward (no bootstrap / Bellman eq)
         self.episode_runs = list()
+
+    def calc_q_vals(self, state, action, goal):
+        state_tensor = torch.FloatTensor(state).to(device)
+        action_tensor_2dim = torch.FloatTensor(action).to(device)
+        action_tensor_3dim = torch.FloatTensor((*action, 0)).to(device)
+        goal_tensor = torch.FloatTensor(goal).to(device)
+        state_action = torch.cat([state_tensor, action_tensor_2dim], dim=-1)
+        action_goal = torch.cat([action_tensor_3dim, goal_tensor], dim=-1)
+        with torch.no_grad():
+            q_val = self.alg.value(state_action).numpy()[0] + \
+                    self.alg.value(action_goal).numpy()[0]
+        return q_val
+
+    def calc_v_vals(self, state, goal):
+        state_tensor = torch.FloatTensor(state).to(device)
+        goal_tensor = torch.FloatTensor(goal).to(device)
+        state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
+        with torch.no_grad():
+            v_val = self.alg.value(state_goal).numpy()[0]
+        return v_val
+
 
     def update(self, n_updates: int, batch_size: int):
         if len(self.replay_buffer) > 0:

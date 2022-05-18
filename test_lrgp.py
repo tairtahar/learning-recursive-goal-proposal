@@ -3,6 +3,7 @@ import argparse
 import gym
 import gym_simple_minigrid  # just to register envs
 import numpy as np
+from lrgp.sample_goals import Sample_goal
 
 from lrgp.hierarchy import Hierarchy
 
@@ -32,7 +33,8 @@ np.random.seed(args['seed'])
 
 # Test
 print(f"Testing checkpoint {args['checkpoint_name']}...")
-tester = Hierarchy(env)
+tester = Sample_goal(env)
+
 tester.load(os.path.join('checkpoints', args['checkpoint_name']))
 
 

@@ -3,12 +3,10 @@ import numpy as np
 
 from gym_simple_minigrid.minigrid import SimpleMiniGridEnv
 from typing import Callable, Tuple
-import torch
 
 from .high import HighPolicy
 from .low import LowPolicy
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Sample_goal:
@@ -41,6 +39,7 @@ class Sample_goal:
             state, ep_goal = self.env.reset()
             ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             goal_stack = [ep_goal]
+            solution = [tuple(state)]
 
             # Start LRGP
             while True:
@@ -109,6 +108,7 @@ class Sample_goal:
 
                     # Run's final state
                     next_state_high = state
+                    solution.append(tuple(state))
 
                     # Create reachable transitions from run info
                     self.low.create_reachable_transitions(goal, achieved)
@@ -134,7 +134,7 @@ class Sample_goal:
                         break
 
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
-            self.high.on_episode_end()
+            self.high.on_episode_end(solution, low_h)
             self.low.on_episode_end()
 
             # Update networks / policies
@@ -144,13 +144,13 @@ class Sample_goal:
 
             # Test to validate training
             if (episode + 1) % test_each == 0:
-                subg, subg_a, steps, steps_a, max_subg, sr, low_sr = self._test(n_episodes_test, low_h, high_h)
+                subg, subg_a, steps, steps_a, max_subg, sr, low_sr = self.test(n_episodes_test, low_h, high_h)
                 print(f"Episode {episode + 1:5d}: {100 * sr:5.1f}% Achieved")
                 self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr,
                                   len(self.high.replay_buffer), len(self.low.replay_buffer),
                                   len(self.low.reachable_buffer), len(self.low.allowed_buffer)])
 
-    def _test(self, n_episodes: int, low_h: int, high_h: int) -> Tuple[np.ndarray, ...]:
+    def test(self, n_episodes: int, low_h: int, high_h: int, **kwargs) -> Tuple[np.ndarray, ...]:
 
         # Log metrics
         log_proposals = list()
@@ -277,7 +277,7 @@ class Sample_goal:
             solution = [tuple(state)]
             achieved = self._goal_achived(state, goal)
             if not achieved:
-                for run_iter in range(5):
+                for run_iter in range(5):  # TODO: make this adjustable
                     last_state, max_env_steps = self.run_setps(state, goal, low_h, epsilon)
                     self.low.create_reachable_transitions(goal, achieved)
                     goal = state
@@ -304,96 +304,22 @@ class Sample_goal:
             if (sample + 1) % 50 == 0:
                 print("low sampling target " + str(sample + 1))
 
-    def store_path(self, idx_best):
-        path = self.possible_path[idx_best].copy()
-        path.reverse()
-        for i in range(len(path) - 2):
-            q_val = self.calc_q_vals((*path[i], 0), path[i + 1], path[i + 2])
-            self.high.replay_buffer.add((*path[i], 0),  # state
-                                        path[i + 1],  # action <-> proposed goal
-                                        q_val,  # reward <-> - N runs
-                                        (*path[i + 1], 0),  # (NOT USED) next_state
-                                        path[i + 2],  # goal
-                                        True)
-        self.possible_path = list()
-        self.q_possible_path = list()
-        self.idx_possible_path = 0
+    def solution_to_vicinity(self, solution, low_h):
+        solution.reverse()
+        for i, element in enumerate(solution):
+            goal_1dim = self.env.location_to_number(element)
+            for j in range(1, len(solution) - i):
+                if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
+                    self.high.goal_list[goal_1dim].add(solution[i + j])
+                    curr_state_1dim = self.env.location_to_number(solution[i + j])
+                    self.high.goal_list[curr_state_1dim].add(element)
+                if j >= low_h:
+                    break
 
-    def recursive_intersect(self, state, goal, path, limit):
-        if limit == 0:
-            # path.pop()
-            self.scan_in_level[limit].add(goal)
-            return False, path
-        state_1dim = self.env.location_to_number(state)
-        goal_1dim = self.env.location_to_number(goal)
-        if len(self.high.goal_list[goal_1dim]) == 0:
-            # path.pop()
-            self.scan_in_level[limit].add(goal)
-            return False, path
-        intersect = self.high.goal_list[state_1dim].intersection(self.high.goal_list[goal_1dim])
-        if tuple(goal) in self.scan_in_level[limit]:
-            return False, path
-        path.append(tuple(goal))
-        if len(intersect) == 0:  # keep on searching for state closer to current state
-            res = False
-            if limit == 1:
-                self.scan_in_level[limit].add(goal)
-                path.pop()
-                return False, path
-            set_to_check = self.high.goal_list[goal_1dim] - self.scan_in_level[limit]
-            if len(set_to_check) == 0:
-                self.scan_in_level[limit].add(goal)
-                return False, path
-            for subgoal in set_to_check:
-                if tuple(subgoal) not in path: # and tuple(subgoal) not in self.scan_in_level[limit+1]:  #add flag at least one true return true
-                    res, path = self.recursive_intersect(state, subgoal, path, limit - 1)
-                    if res:
-                        self.success_flag = True # At least one path was found
-            self.scan_in_level[limit].add(tuple(goal))
-            path.pop()
-            return res, path
-        else:  # found intersection with current state vicinity
-            # store path and q-val of path
-            v_val_tot = 0
-            for i in range(len(path)-1):
-                v_val = self.calc_v_vals((*path[i+1], 0), path[i])
-                v_val_tot += v_val
-            for i in range(len(intersect)):
-                exp = list(intersect)[i]
-                self.possible_path.append(None)
-                self.q_possible_path.append(None)
-                self.possible_path[self.idx_possible_path] = path.copy()
-                self.q_possible_path[self.idx_possible_path] = v_val_tot
-                self.possible_path[self.idx_possible_path].append(exp)
-                q_val = self.calc_v_vals(state, exp)
-                self.q_possible_path[self.idx_possible_path] += q_val
-                self.idx_possible_path += 1
-            # self.idx_possible_path += i
-            path.pop()
-            return True, path
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
         return np.array_equal(state, goal)
 
-    def calc_q_vals(self, state, action, goal):
-        state_tensor = torch.FloatTensor(state).to(device)
-        action_tensor_2dim = torch.FloatTensor(action).to(device)
-        action_tensor_3dim = torch.FloatTensor((*action, 0)).to(device)
-        goal_tensor = torch.FloatTensor(goal).to(device)
-        state_action = torch.cat([state_tensor, action_tensor_2dim], dim=-1)
-        action_goal = torch.cat([action_tensor_3dim, goal_tensor], dim=-1)
-        with torch.no_grad():
-            q_val = self.low.alg.value_network(state_action).numpy()[0] + \
-                    self.low.alg.value_network(action_goal).numpy()[0]
-        return q_val
-
-    def calc_v_vals(self, state, goal):
-        state_tensor = torch.FloatTensor(state).to(device)
-        goal_tensor = torch.FloatTensor(goal).to(device)
-        state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
-        with torch.no_grad():
-            v_val = self.low.alg.value_network(state_goal).numpy()[0]
-        return v_val
 
     def run_setps(self, state: np.ndarray, goal: np.ndarray, low_h: int, epsilon: float):
         low_steps = low_fwd = 0
