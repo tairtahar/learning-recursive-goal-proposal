@@ -29,6 +29,7 @@ parser.add_argument('--epsilon_max', type=float, default=0.65, help='Maximum exp
 parser.add_argument('--epsilon_min', type=float, default=0.1, help='Minimum exploration probability for e-greedy '
                                                                     'policy')
 parser.add_argument('--epsilon_decay', type=float, default=0.9994, help='Decay for epsilon')
+parser.add_argument('--n_samples_low', type=int, default=0, help='Initial training with low level')
 
 args = parser.parse_args()
 args = vars(args)
@@ -49,7 +50,7 @@ epsilon_f = lambda i: args['epsilon_min'] + (args['epsilon_max'] - args['epsilon
 # Train
 print(f"Running {args['job_name']}...")
 learner = Sample_goal(env)
-learner.train(**args, n_sample_low=300, epsilon_f=epsilon_f)
+learner.train(**args, epsilon_f=epsilon_f)
 
 # Save checkpoints and logs
 learner.save(os.path.join('logs', args['job_name']))

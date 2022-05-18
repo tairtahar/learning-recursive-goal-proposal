@@ -23,10 +23,10 @@ class Sample_goal:
         self.scan_in_level = []
 
 
-    def train(self, n_sample_low: int, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
+    def train(self, n_samples_low: int, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
 
-        self.low_policy_learning(n_sample_low, low_h, update_each, n_updates, batch_size, epsilon_f)
+        self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
         for episode in range(n_episodes):
             # Noise and epsilon for this episode
             epsilon = epsilon_f(episode)

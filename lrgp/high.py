@@ -132,17 +132,17 @@ class HighPolicy:
                                            True)                # done --> Q-value = Reward (no bootstrap / Bellman eq)
         self.episode_runs = list()
 
-    def calc_q_vals(self, state, action, goal):
-        state_tensor = torch.FloatTensor(state).to(device)
-        action_tensor_2dim = torch.FloatTensor(action).to(device)
-        action_tensor_3dim = torch.FloatTensor((*action, 0)).to(device)
-        goal_tensor = torch.FloatTensor(goal).to(device)
-        state_action = torch.cat([state_tensor, action_tensor_2dim], dim=-1)
-        action_goal = torch.cat([action_tensor_3dim, goal_tensor], dim=-1)
-        with torch.no_grad():
-            q_val = self.alg.value(state_action).numpy()[0] + \
-                    self.alg.value(action_goal).numpy()[0]
-        return q_val
+    # def calc_q_vals(self, state, action, goal):
+    #     state_tensor = torch.FloatTensor(state).to(device)
+    #     action_tensor_2dim = torch.FloatTensor(action).to(device)
+    #     action_tensor_3dim = torch.FloatTensor((*action, 0)).to(device)
+    #     goal_tensor = torch.FloatTensor(goal).to(device)
+    #     state_action = torch.cat([state_tensor, action_tensor_2dim], dim=-1)
+    #     action_goal = torch.cat([action_tensor_3dim, goal_tensor], dim=-1)
+    #     with torch.no_grad():
+    #         q_val = self.alg.value(state_action).cpu()numpy()[0] + \
+    #                 self.alg.value(action_goal).cpu().numpy()[0]
+    #     return q_val
 
     def calc_v_vals(self, state, goal):
         state_tensor = torch.FloatTensor(state).to(device)
