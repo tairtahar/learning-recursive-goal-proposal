@@ -51,7 +51,7 @@ class Hierarchy:
                     # Ask for a new starting point
                     count_proposals = 0
                     while True:
-                        new_ss = self.high.select_action(css, self.env.state_goal_mapper(cgs))
+                        new_ss = self.high.select_action(css, cgs)
                         count_proposals += 1
                         if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in starting_state_list:
                             break
@@ -60,10 +60,10 @@ class Hierarchy:
                     new_ss_loc = self.env.state_goal_mapper(new_ss)
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
-                    if not self.low.is_allowed(new_ss_loc, epsilon) or \
-                            np.array_equal(new_ss_loc, self.env.state_goal_mapper(cgs)) or \
-                            np.array_equal(new_ss_loc, self.env.state_goal_mapper(css)):
-                        self.high.add_penalization((css, new_ss, -high_h, css, self.env.state_goal_mapper(cgs), True))
+                    if not self.low.is_allowed(new_ss, epsilon) or \
+                            np.array_equal(new_ss, cgs) or \
+                            np.array_equal(new_ss, css):
+                        self.high.add_penalization((css, new_ss, -high_h, css, cgs, True))
                             # (css, new_ss, -high_h, css, cgs, True))  # ns not used
                     else:
                         # Adding the new goal in between cgs ans css
@@ -92,19 +92,19 @@ class Hierarchy:
                     # Apply steps
 
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
-                        action = self.low.select_action(css, self.env.state_goal_mapper(cgs), epsilon)
+                        action = self.low.select_action(css, cgs, epsilon)
                         next_state, reward, done, info = self.env.step(action, True, css)
                         accumulated_reward += reward
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, cgs)
                         self.low.add_transition(
-                            (css, action, int(achieved) - 1, next_state, self.env.state_goal_mapper(cgs), achieved))
+                            (css, action, int(achieved) - 1, next_state, cgs, achieved))
 
                         css = next_state
 
                         # Add info to reachable and allowed buffers
                         self.low.add_run_step(css)
-                        self.low.add_allowed_goal(self.env.state_goal_mapper(css))
+                        self.low.add_allowed_goal(css)
 
                         # Don't count turns
                         if action == SimpleMiniGridEnv.Actions.forward:
@@ -133,7 +133,7 @@ class Hierarchy:
                     next_state_high = css
 
                     # Create reachable transitions from run info
-                    self.low.create_reachable_transitions(self.env.state_goal_mapper(cgs), achieved)
+                    self.low.create_reachable_transitions(cgs, achieved)
 
                     # We enforce a goal to be different from current state or previous goal, the agent MUST have moved
                     assert low_steps != 0
@@ -143,7 +143,7 @@ class Hierarchy:
                             # and if last_state is not None:
                         # self.high.add_run_info((last_state, new_ss, accumulate_reward, tuple(css), self.env.state_goal_mapper(cgs)))
                         # self.high.add_run_info((state_high, cgs, accumulated_reward, next_state_high))
-                        self.high.add_run_info((state_high, self.env.state_goal_mapper(cgs), accumulated_reward, tuple(next_state_high)))
+                        self.high.add_run_info((state_high, cgs, accumulated_reward, tuple(next_state_high)))
 
                     # Update goal stack
                     # while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
@@ -212,7 +212,7 @@ class Hierarchy:
             # Start LRGP
             while True:
                 # Check if reachable
-                reachable = self.low.is_reachable(css, self.env.state_goal_mapper(cgs), 0)
+                reachable = self.low.is_reachable(css, cgs, 0)
 
                 if not reachable:
                     # Check if more proposals available
@@ -222,21 +222,21 @@ class Hierarchy:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new starting state
-                    new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), add_noise)
+                    new_ss = self.high.select_action_test(css, cgs, add_noise)
                     count_proposals = 0
                     while True:
                         count_proposals += 1
                         if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in starting_state_list:
                             break
                         else:
-                            new_ss = self.high.select_action_test(css, self.env.state_goal_mapper(cgs), True)
+                            new_ss = self.high.select_action_test(css, cgs, True)
                         if count_proposals % 20 == 0:
                             print(str(count_proposals), " bad proposals were given")
                     log_bad_proposals.append(count_proposals)
-                    new_ss_loc = self.env.state_goal_mapper(new_ss)
+                    # new_ss_loc = self.env.state_goal_mapper(new_ss)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(new_ss_loc, 0):
+                    if not self.low.is_allowed(new_ss, 0):
                         add_noise = True
                     else:
                         starting_state_list.insert(1, tuple(new_ss))
@@ -258,7 +258,7 @@ class Hierarchy:
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
-                        action = self.low.select_action(css, self.env.state_goal_mapper(cgs), 0)
+                        action = self.low.select_action(css, cgs, 0)
                         next_state, reward, done, info = self.env.step(action, True, css)
                         achieved = self._goal_achived(next_state, cgs)
 

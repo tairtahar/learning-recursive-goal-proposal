@@ -12,9 +12,9 @@ class HighPolicy:
 
         state_shape = env.observation_space.shape[0]
         # goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0]
-        goal_shape = state_shape-1
+        goal_shape = state_shape
         # High agent proposes goals --> action space === goal space
-        action_shape = state_shape  # Tair
+        action_shape = state_shape
 
         # Compute action bounds to convert SAC's action in the correct range
         action_low = env.state_goal_mapper(env.observation_space.low)

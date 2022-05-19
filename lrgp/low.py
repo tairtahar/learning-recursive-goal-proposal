@@ -14,7 +14,7 @@ class LowPolicy:
 
         state_shape = env.observation_space.shape[0]
         action_dims = env.action_space.n
-        goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0]
+        goal_shape = env.observation_space.sample().shape[0]
         # Init DDQN algorithm, base learner for low agent
         self.alg = DDQNStateGoal(state_dim=state_shape, action_dim=action_dims, goal_dim=goal_shape,
                                  gamma=gamma, tau=tau, hidden_dims=(256, 256))
@@ -60,7 +60,7 @@ class LowPolicy:
         for i, s_1 in enumerate(self.run_steps):
             for s_2 in self.run_steps[i + 1:]:
                 # In this tabular implementation we only store POSITIVE transitions encoding the state-goal pair
-                self.reachable_buffer.add(tuple(s_1) + tuple(self.env.state_goal_mapper(s_2)))
+                self.reachable_buffer.add(tuple(s_1) + tuple(s_2))
 
         if not achieved:
             # In other implementations I should know if final goal was achieved to compute a NEGATIVE transition
