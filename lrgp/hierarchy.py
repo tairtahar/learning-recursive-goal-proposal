@@ -67,6 +67,8 @@ class Hierarchy:
                             # (css, new_ss, -high_h, css, cgs, True))  # ns not used
                     else:
                         # Adding the new goal in between cgs ans css
+                        self.high.on_episode_end()
+                        self.low.on_episode_end()
                         starting_state_list.insert(1, tuple(new_ss))
                         last_state = css
                         accumulated_reward = 0
@@ -143,7 +145,7 @@ class Hierarchy:
                             # and if last_state is not None:
                         # self.high.add_run_info((last_state, new_ss, accumulate_reward, tuple(css), self.env.state_goal_mapper(cgs)))
                         # self.high.add_run_info((state_high, cgs, accumulated_reward, next_state_high))
-                        self.high.add_run_info((state_high, cgs, accumulated_reward, tuple(next_state_high)))
+                        self.high.add_run_info((state_high, cgs, next_state_high))
 
                     # Update goal stack
                     # while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
@@ -158,8 +160,8 @@ class Hierarchy:
                     break
 
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
-            self.high.on_episode_end()
-            self.low.on_episode_end()
+            # self.high.on_episode_end()
+            # self.low.on_episode_end()
 
             # Update networks / policies
             if (episode + 1) % update_each == 0:

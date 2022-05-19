@@ -67,6 +67,30 @@ class HighPolicy:
     def add_penalization(self, transition: tuple):
         self.replay_buffer.add(*transition)
 
+    def on_episode_end(self):
+    #     # Create MonteCarlo-based transitions from episode runs
+    #     # Hindsight goals --> Next state as proposed goal (as if low level acts optimally)
+    #
+    #     # We do not create transitions between states and goals that are reachable within one run.
+    #     # We do not need to learn them because no subgoals are required
+    #
+        for i, (state_1, _, next_state_1) in enumerate(self.episode_runs):
+            for j, (_, _, next_state_3) in enumerate(self.episode_runs[i + 1:], i + 1):
+                # Used as final goal
+                # hindsight_goal_3 = self.env.state_goal_mapper(next_state_3)
+                for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
+                    # Used as intermediate goal or proposed action
+                    # hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
+                    # hindsight_goal_2 = next_state_2
+                    self.replay_buffer.add(state_1,             # state
+                                           next_state_2,    # action <-> proposed goal
+                                           -(j - i + 1),        # reward <-> - N runs
+                                           next_state_1,        # (NOT USED) next_state
+                                           next_state_3,    # goal
+                                           True)                # done --> Q-value = Reward (no bootstrap / Bellman eq)
+        self.episode_runs = list()
+
+
     # def on_episode_end(self):
     #     # Create MonteCarlo-based transitions from episode runs
     #     # Hindsight goals --> Next state as proposed goal (as if low level acts optimally)
@@ -74,45 +98,21 @@ class HighPolicy:
     #     # We do not create transitions between states and goals that are reachable within one run.
     #     # We do not need to learn them because no subgoals are required
     #
-    #     for i, (state_1, _, next_state_1) in enumerate(self.episode_runs):
-    #         for j, (_, _, next_state_3) in enumerate(self.episode_runs[i + 1:], i + 1):
-    #             # Used as final goal
-    #             hindsight_goal_3 = self.env.state_goal_mapper(next_state_3)
-    #             for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
-    #                 # Used as intermediate goal or proposed action
-    #                 # hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
-    #                 hindsight_goal_2 = next_state_2
-    #                 self.replay_buffer.add(state_1,             # state
-    #                                        hindsight_goal_2,    # action <-> proposed goal
-    #                                        -(j - i + 1),        # reward <-> - N runs
-    #                                        next_state_1,        # (NOT USED) next_state
-    #                                        hindsight_goal_3,    # goal
-    #                                        True)                # done --> Q-value = Reward (no bootstrap / Bellman eq)
+    #     for i, (state, goal, reward, next_state) in enumerate(self.episode_runs):
+    #         # for j, (_, _, next_state_3) in enumerate(self.episode_runs[i + 1:], i + 1):
+    #         #     # Used as final goal
+    #         #     hindsight_goal_3 = self.env.state_goal_mapper(next_state_3)
+    #         #     for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
+    #         #         # Used as intermediate goal or proposed action
+    #         #         # hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
+    #         #         hindsight_goal_2 = next_state_2
+    #         self.replay_buffer.add(state,             # given starting state
+    #                        next_state,    # action <-> suggestion for starting state
+    #                        reward,        # reward external
+    #                        next_state,        #  result state after h_low steps
+    #                        goal,    # goal
+    #                        True)                # done --> Q-value = Reward (no bootstrap / Bellman eq)
     #     self.episode_runs = list()
-
-
-    def on_episode_end(self):
-        # Create MonteCarlo-based transitions from episode runs
-        # Hindsight goals --> Next state as proposed goal (as if low level acts optimally)
-
-        # We do not create transitions between states and goals that are reachable within one run.
-        # We do not need to learn them because no subgoals are required
-
-        for i, (state, goal, reward, next_state) in enumerate(self.episode_runs):
-            # for j, (_, _, next_state_3) in enumerate(self.episode_runs[i + 1:], i + 1):
-            #     # Used as final goal
-            #     hindsight_goal_3 = self.env.state_goal_mapper(next_state_3)
-            #     for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
-            #         # Used as intermediate goal or proposed action
-            #         # hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
-            #         hindsight_goal_2 = next_state_2
-            self.replay_buffer.add(state,             # given starting state
-                           next_state,    # action <-> suggestion for starting state
-                           reward,        # reward external
-                           next_state,        #  result state after h_low steps
-                           goal,    # goal
-                           True)                # done --> Q-value = Reward (no bootstrap / Bellman eq)
-        self.episode_runs = list()
 
     def update(self, n_updates: int, batch_size: int):
         if len(self.replay_buffer) > 0:
