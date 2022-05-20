@@ -149,6 +149,7 @@ class Sample_goal:
                 self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr,
                                   len(self.high.replay_buffer), len(self.low.replay_buffer),
                                   len(self.low.reachable_buffer), len(self.low.allowed_buffer)])
+                self.save(os.path.join('logs', kwargs['job_name']))
 
     def test(self, n_episodes: int, low_h: int, high_h: int, **kwargs) -> Tuple[np.ndarray, ...]:
 
@@ -283,8 +284,8 @@ class Sample_goal:
                     goal = state
                     state = last_state
                     solution.append(tuple(last_state))
+                    self.low.on_episode_end()
 
-            self.low.on_episode_end()
             solution.reverse()
             for i, element in enumerate(solution):
                 goal_1dim = self.env.location_to_number(element)
@@ -299,7 +300,7 @@ class Sample_goal:
             # Update networks / policies
             if (sample + 1) % update_each == 0:
                 # self.high.update(n_updates, batch_size)
-                self.low.update(n_updates, batch_size)
+                self.low.update(3, batch_size)  # TODO: n_updates make adjustable
 
             if (sample + 1) % 50 == 0:
                 print("low sampling target " + str(sample + 1))
