@@ -6,7 +6,7 @@ from typing import Callable, Tuple
 
 from .high import HighPolicy
 from .low import LowPolicy
-
+import time
 
 
 class Sample_goal:
@@ -22,10 +22,9 @@ class Sample_goal:
         self.success_flag = False
         self.scan_in_level = []
 
-
     def train(self, n_samples_low: int, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
-
+        start_time = time.time()
         self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
         for episode in range(n_episodes):
             # Noise and epsilon for this episode
@@ -87,6 +86,9 @@ class Sample_goal:
                         next_state, reward, done, info = self.env.step(action)
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, goal)
+                        # if tuple(state) == tuple(next_state):
+                        #     self.low.add_transition((state, action, -4, next_state, goal, achieved))
+                        # else:
                         self.low.add_transition((state, action, int(achieved) - 1, next_state, goal, achieved))
 
                         state = next_state
@@ -112,7 +114,6 @@ class Sample_goal:
 
                     # Create reachable transitions from run info
                     self.low.create_reachable_transitions(goal, achieved)
-
 
                     # Add run info for high agent to create transitions
                     if not np.array_equal(state_high, next_state_high):
@@ -145,10 +146,11 @@ class Sample_goal:
             # Test to validate training
             if (episode + 1) % test_each == 0:
                 subg, subg_a, steps, steps_a, max_subg, sr, low_sr = self.test(n_episodes_test, low_h, high_h)
+                curr_time = (time.time() - start_time)/60
                 print(f"Episode {episode + 1:5d}: {100 * sr:5.1f}% Achieved")
                 self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr,
                                   len(self.high.replay_buffer), len(self.low.replay_buffer),
-                                  len(self.low.reachable_buffer), len(self.low.allowed_buffer)])
+                                  len(self.low.reachable_buffer), len(self.low.allowed_buffer), curr_time])
                 self.save(os.path.join('logs', kwargs['job_name']))
 
     def test(self, n_episodes: int, low_h: int, high_h: int, **kwargs) -> Tuple[np.ndarray, ...]:
@@ -279,23 +281,13 @@ class Sample_goal:
             achieved = self._goal_achived(state, goal)
             if not achieved:
                 for run_iter in range(5):  # TODO: make this adjustable
-                    last_state, max_env_steps = self.run_setps(state, goal, low_h, epsilon)
+                    last_state = self.markovian_walk(state, goal, low_h)
                     self.low.create_reachable_transitions(goal, achieved)
                     goal = state
                     state = last_state
                     solution.append(tuple(last_state))
                     self.low.on_episode_end()
-
-            solution.reverse()
-            for i, element in enumerate(solution):
-                goal_1dim = self.env.location_to_number(element)
-                for j in range(1, len(solution)-i):
-                    if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i+j]):
-                        self.high.goal_list[goal_1dim].add(solution[i+j])
-                        curr_state_1dim = self.env.location_to_number(solution[i+j])
-                        self.high.goal_list[curr_state_1dim].add(element)
-                    if j >= low_h:
-                        break
+            self.solution_to_vicinity(solution, low_h)
 
             # Update networks / policies
             if (sample + 1) % update_each == 0:
@@ -317,14 +309,11 @@ class Sample_goal:
                 if j >= low_h:
                     break
 
-
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
         return np.array_equal(state, goal)
 
-
     def run_setps(self, state: np.ndarray, goal: np.ndarray, low_h: int, epsilon: float):
         low_steps = low_fwd = 0
-        max_env_steps = False
         achieved = self._goal_achived(state, goal)
         while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
             action = self.low.select_action(state, goal, epsilon)
@@ -348,10 +337,32 @@ class Sample_goal:
 
             # Max env steps
             if done and len(info) > 0:
-                max_env_steps = True
-                return state, max_env_steps
+                break
 
-        return state, max_env_steps
+        return state
+
+    def markovian_walk(self, state: np.ndarray, goal: np.ndarray, low_h: int):
+        low_steps = low_fwd = 0
+        while low_fwd < low_h and low_steps < 2 * low_h:
+            action = self.low.select_action(state, goal, 1)  # for full randomness
+            next_state, reward, done, info = self.env.step(action)
+            state = next_state
+
+            # Add info to reachable and allowed buffers
+            self.low.add_run_step(state)
+            self.low.add_allowed_goal(state)
+
+            # Don't count turns
+            if action == SimpleMiniGridEnv.Actions.forward:
+                low_fwd += 1
+            # Max steps to avoid getting stuck
+            low_steps += 1
+
+            # Max env steps
+            if done and len(info) > 0:
+                break
+
+        return state
 
     def save(self, path: str):
         if not os.path.exists(path):
