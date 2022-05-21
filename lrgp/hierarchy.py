@@ -6,6 +6,7 @@ from typing import Callable, Tuple
 
 from .high import HighPolicy
 from .low import LowPolicy
+import time
 
 
 class Hierarchy:
@@ -18,7 +19,7 @@ class Hierarchy:
 
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, render: bool, **kwargs):
-
+        start_time = time.time()
         for episode in range(n_episodes):
             # Noise and epsilon for this episode
             epsilon = epsilon_f(episode)
@@ -171,10 +172,12 @@ class Hierarchy:
             # Test to validate training
             if (episode + 1) % test_each == 0:
                 subg, subg_a, steps, steps_a, max_subg, sr, low_sr, bad_propose = self.test(n_episodes_test, low_h, high_h, render)
+                curr_time = (time.time() - start_time) / 60
                 print(f"Episode {episode + 1:5d}: {100 * sr:5.1f}% Achieved")
                 self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr, bad_propose,
                                   len(self.high.replay_buffer), len(self.low.replay_buffer),
-                                  len(self.low.reachable_buffer), len(self.low.allowed_buffer)])
+                                  len(self.low.reachable_buffer), len(self.low.allowed_buffer), curr_time])
+                self.save(os.path.join('logs', kwargs['job_name']))
 
     def test(self, n_episodes: int, low_h: int, high_h: int, render: bool = False, **kwargs) -> Tuple[np.ndarray, ...]:
         if render:
