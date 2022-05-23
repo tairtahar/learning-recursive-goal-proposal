@@ -270,33 +270,25 @@ class SACStateGoal(Algorithm):
         return action.squeeze().cpu().numpy()
 
     def select_action(self, state, goal):
-        possible_suggestions = []
         q_vals = []
         current_1d_goal = self.location_to_number(goal)
-        if bool(self.goal_list[current_1d_goal]):
-            for exp in self.goal_list[current_1d_goal]:
-                if type(exp) == tuple:
-                    action = exp
-                else:
-                    action = exp[0]
-                possible_suggestions.append(action)
-                q_value = self.calc_v_vals(state, action) + self.calc_v_vals(action, goal)
-                q_vals.append(q_value)
+        list_possible_actions = list(self.goal_list[current_1d_goal])
+        if bool(list_possible_actions):
+            state_list = [state for _ in range(len(list_possible_actions))]
+            goal_list = [goal for _ in range(len(list_possible_actions))]
+            q_values = self.calc_v_vals(state_list, list_possible_actions) + \
+                       self.calc_v_vals(list_possible_actions, goal_list)
         else:
             return False, tuple()
-        if bool(q_vals):
-            max_idx = np.argmax(np.array(q_vals))
-            return True, possible_suggestions[max_idx]
-        else:
-            return False, tuple()
-
+        max_idx = np.argmax(np.array(q_values))
+        return True, list_possible_actions[max_idx]
 
     def calc_v_vals(self, state, goal):
         state_tensor = torch.FloatTensor(state).to(device)
         goal_tensor = torch.FloatTensor(goal).to(device)
         state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
         with torch.no_grad():
-            v_val = self.value(state_goal).numpy()[0]
+            v_val = self.value(state_goal).numpy()
         return v_val
 
     def update(self, replay_buffer, batch_size):
@@ -363,7 +355,6 @@ class SACStateGoal(Algorithm):
         with open(os.path.join(path, f"{job_name}_goal_list.pickle"), 'wb') as f:
             # for _set in self.goal_list:
             pickle.dump(self.goal_list, f)
-
 
     def load(self, path, job_name):
         self.policy.load_state_dict(torch.load(os.path.join(path, f"{job_name}_actor.pth"), device))
