@@ -146,14 +146,14 @@ class Sample_goal:
             # Test to validate training
             if (episode + 1) % test_each == 0:
                 subg, subg_a, steps, steps_a, max_subg, sr, low_sr = self.test(n_episodes_test, low_h, high_h)
-                curr_time = (time.time() - start_time)/60
+                curr_time = (time.time() - start_time) / 60
                 print(f"Episode {episode + 1:5d}: {100 * sr:5.1f}% Achieved")
                 self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr,
                                   len(self.high.replay_buffer), len(self.low.replay_buffer),
                                   len(self.low.reachable_buffer), len(self.low.allowed_buffer), curr_time])
                 self.save(os.path.join('logs', kwargs['job_name']))
 
-    def test(self, n_episodes: int, low_h: int, high_h: int, **kwargs) -> Tuple[np.ndarray, ...]:
+    def _test(self, n_episodes: int, low_h: int, high_h: int, **kwargs) -> Tuple[np.ndarray, ...]:
 
         # Log metrics
         log_proposals = list()
@@ -363,6 +363,139 @@ class Sample_goal:
                 break
 
         return state
+
+    def test(self, n_episodes: int, low_h: int, high_h: int, render: bool = False, **kwargs) -> Tuple[np.ndarray, ...]:
+        if render:
+            return self._test_render(n_episodes, low_h, high_h)
+        else:
+            return self._test(n_episodes, low_h, high_h)
+
+    def _test_render(self, n_episodes: int, low_h: int, high_h: int) -> Tuple[np.ndarray, ...]:
+
+        # Log metrics
+        log_proposals = list()
+        log_proposals_a = list()
+        log_steps = list()
+        log_steps_a = list()
+        log_success = list()
+        log_low_success = list()
+        log_max_proposals = list()
+
+        for episode in range(n_episodes):
+            # Init episode variables
+            subgoals_proposed = 0
+            low_steps_ep = 0
+            max_env_steps = max_subgoals_proposed = low_stuck = add_noise = False
+
+            # Generate env initialization
+            state, ep_goal = self.env.reset()
+            self.env.render()
+            ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
+            goal_stack = [ep_goal]
+
+            # Start LRGP
+            while True:
+                goal = goal_stack[-1]
+
+                # Check if reachable
+                reachable = self.low.is_reachable(state, goal, 0)
+
+                if not reachable:
+                    # Check if more proposals available
+                    subgoals_proposed += 1
+                    if subgoals_proposed > high_h:
+                        max_subgoals_proposed = True
+                        break  # Too many proposals. Break and move to another episode
+
+                    # Ask for a new subgoal
+                    new_goal = self.high.select_action_test(state, goal, add_noise)
+
+                    # If not allowed, add noise to generate an adjacent goal
+                    if not self.low.is_allowed(new_goal, 0):
+                        add_noise = True
+                        self.env.add_goal(self.env.state_goal_mapper(new_goal))
+                        self.env.render()
+                        self.env.remove_goal()
+                        self.env.render()
+                    else:
+                        goal_stack.append(new_goal)
+                        self.env.add_goal(self.env.state_goal_mapper(new_goal))
+                        self.env.render()
+                        add_noise = False
+
+                else:
+                    # Reachable. Apply a run of max low_h low actions
+                    # Store run's initial state
+                    state_high = state
+
+                    # Init run variables
+                    achieved = self._goal_achived(state, goal)
+                    low_fwd = 0
+                    low_steps = 0
+
+                    # Apply steps
+                    while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
+                        action = self.low.select_action(state, goal, 0)
+                        next_state, reward, done, info = self.env.step(action)
+                        self.env.render()
+                        achieved = self._goal_achived(next_state, goal)
+
+                        state = next_state
+
+                        # Don't count turns
+                        if action == SimpleMiniGridEnv.Actions.forward:
+                            low_fwd += 1
+                        # Max steps to avoid getting stuck
+                        low_steps += 1
+                        low_steps_ep += 1  # To log performance
+
+                        # Max env steps
+                        if done and len(info) > 0:
+                            max_env_steps = True
+                            break
+
+                    # Run's final state
+                    next_state_high = state
+
+                    log_low_success.append(achieved)
+
+                    # Update stack
+                    while len(goal_stack) > 0 and self._goal_achived(next_state_high, goal_stack[-1]):
+                        goal_stack.pop()
+                        self.env.remove_goal()
+                    self.env.render()
+
+                    # Check episode completed successfully
+                    if len(goal_stack) == 0:
+                        break
+
+                    # Check episode completed due to bad low policy
+                    elif np.array_equal(state_high, next_state_high):
+                        low_stuck = True
+                        break
+
+                    # Check episode completed due to Max Env Steps
+                    elif max_env_steps:
+                        break
+
+            # Log metrics
+            episode_achieved = not max_subgoals_proposed and not max_env_steps and not low_stuck
+            log_success.append(episode_achieved)
+            log_max_proposals.append(max_subgoals_proposed)
+            log_proposals.append(min(subgoals_proposed, high_h))
+            log_steps.append(low_steps_ep)
+            if episode_achieved:
+                log_proposals_a.append(min(subgoals_proposed, high_h))
+                log_steps_a.append(low_steps_ep)
+
+        # Avoid taking the mean of an empty array
+        if len(log_proposals_a) == 0:
+            log_proposals_a = [0]
+            log_steps_a = [0]
+
+        return np.array(log_proposals).mean(), np.array(log_proposals_a).mean(), np.array(log_steps).mean(), \
+               np.array(log_steps_a).mean(), np.array(log_max_proposals).mean(), np.array(log_success).mean(), \
+               np.array(log_low_success).mean()
 
     def save(self, path: str):
         if not os.path.exists(path):
