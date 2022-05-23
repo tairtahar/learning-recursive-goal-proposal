@@ -28,7 +28,8 @@ class HighPolicy:
         # action_offset = np.concatenate((action_offset, np.array([2])))
 
         # Init SAC algorithm, base learner for high agent
-        self.alg = SACStateGoal(state_shape, action_shape, goal_shape, action_bound, action_offset, gamma, tau)
+        self.alg = SACStateGoal(state_shape, action_shape, goal_shape, action_bound, action_offset, gamma, tau,
+                                self.env.width)
 
         self.clip_low = np.concatenate((action_low, np.array([0])))
         self.clip_high = np.concatenate((action_high, np.array([3])))
@@ -37,13 +38,12 @@ class HighPolicy:
         self.clip_high = action_high
 
         self.replay_buffer = ReplayBuffer(br_size)
-        self.goal_list = [set() for _ in range(self.env.height*self.env.width)]
 
         self.episode_runs = list()
 
     def select_action(self, state: np.ndarray, goal: np.ndarray) -> np.ndarray:
         # SAC action is continuous [low, high + 1]
-        # action = self.alg.select_action(state, goal, False)
+        success, action = self.alg.select_action(state, goal)
         # # Discretize using floor --> discrete [low, high + 1]
         # action = np.floor(action)
         # # In case action was exactly high + 1, it is out of bounds. Clip
@@ -52,33 +52,19 @@ class HighPolicy:
         # return action.astype(np.int)
 
         #
-        possible_suggestions = []
-        q_vals = []
-        current_1d_goal = self.env.location_to_number(goal)
-        if bool(self.goal_list[current_1d_goal]):
-            for exp in self.goal_list[current_1d_goal]:
-                if type(exp) == tuple:
-                    action = exp
-                else:
-                    action = exp[0]
-                possible_suggestions.append(action)
-                q_value = self.calc_v_vals(state, action) + self.calc_v_vals(action, goal)
-                q_vals.append(q_value)
-        if len(q_vals) == 0:
+        if not success:  # q_vals is empty, no suggestions.
             # SAC action is continuous [low, high + 1]
-            action = self.alg.select_action(state, goal, False)
+            action = self.alg.select_action_policy(state, goal, False)
             # Discretize using floor --> discrete [low, high + 1]
             action = np.floor(action)
             # In case action was exactly high + 1, it is out of bounds. Clip
-            action = np.clip(action, self.clip_low, self.clip_high)
-            return action.astype(np.int)  # [0]
-            # idx = np.random.randint(0, len(self.replay_buffer.buffer))
-            # return list(self.replay_buffer.buffer)[idx][1]
-        max_idx = np.argmax(np.array(q_vals))
-        return possible_suggestions[max_idx]
+            action = np.clip(action, self.clip_low, self.clip_high).astype(np.int)
+        return action
 
     def select_action_test(self, state: np.ndarray, goal: np.ndarray, add_noise: bool = False) -> np.ndarray:
-        action = self.select_action(state, goal)
+        success, action = self.alg.select_action(state, goal)
+        if not success:
+            action = self.alg.select_action_policy(state, goal, True).astype(np.int)
         return action
         # #
         # noise = 0
@@ -91,7 +77,19 @@ class HighPolicy:
         # action = np.floor(action)
         # action = np.clip(action, self.clip_low, self. clip_high)
         #
-        # return action.astype(np.int)
+        # return action
+
+    def solution_to_vicinity(self, solution, low_h):
+        solution.reverse()
+        for i, element in enumerate(solution):
+            goal_1dim = self.alg.location_to_number(element)
+            for j in range(1, len(solution) - i):
+                if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
+                    self.alg.goal_list[goal_1dim].add(solution[i + j])
+                    curr_state_1dim = self.alg.location_to_number(solution[i + j])
+                    self.alg.goal_list[curr_state_1dim].add(element)
+                if j >= low_h:
+                    break
 
     def add_run_info(self, info: tuple):
         self.episode_runs.append(info)
@@ -102,12 +100,12 @@ class HighPolicy:
     def on_episode_end(self, solution: list, low_h: int):
         solution.reverse()
         for i, element in enumerate(solution):
-            goal_1dim = self.env.location_to_number(element)
+            goal_1dim = self.alg.location_to_number(element)
             for j in range(1, len(solution) - i):
                 if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
-                    self.goal_list[goal_1dim].add(solution[i + j])
-                    curr_state_1dim = self.env.location_to_number(solution[i + j])
-                    self.goal_list[curr_state_1dim].add(element)
+                    self.alg.goal_list[goal_1dim].add(solution[i + j])
+                    curr_state_1dim = self.alg.location_to_number(solution[i + j])
+                    self.alg.goal_list[curr_state_1dim].add(element)
                 if j >= low_h:  # TODO: Make adjustable, argparse?
                     break
 
@@ -144,13 +142,7 @@ class HighPolicy:
     #                 self.alg.value(action_goal).cpu().numpy()[0]
     #     return q_val
 
-    def calc_v_vals(self, state, goal):
-        state_tensor = torch.FloatTensor(state).to(device)
-        goal_tensor = torch.FloatTensor(goal).to(device)
-        state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
-        with torch.no_grad():
-            v_val = self.alg.value(state_goal).numpy()[0]
-        return v_val
+
 
 
     def update(self, n_updates: int, batch_size: int):

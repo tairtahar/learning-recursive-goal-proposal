@@ -287,7 +287,7 @@ class Sample_goal:
                     state = last_state
                     solution.append(tuple(last_state))
                     self.low.on_episode_end()
-            self.solution_to_vicinity(solution, low_h)
+            self.high.solution_to_vicinity(solution, low_h)
 
             # Update networks / policies
             if (sample + 1) % update_each == 0:
@@ -297,17 +297,7 @@ class Sample_goal:
             if (sample + 1) % 50 == 0:
                 print("low sampling target " + str(sample + 1))
 
-    def solution_to_vicinity(self, solution, low_h):
-        solution.reverse()
-        for i, element in enumerate(solution):
-            goal_1dim = self.env.location_to_number(element)
-            for j in range(1, len(solution) - i):
-                if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
-                    self.high.goal_list[goal_1dim].add(solution[i + j])
-                    curr_state_1dim = self.env.location_to_number(solution[i + j])
-                    self.high.goal_list[curr_state_1dim].add(element)
-                if j >= low_h:
-                    break
+
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
         return np.array_equal(state, goal)
