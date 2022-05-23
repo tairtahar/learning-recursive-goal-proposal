@@ -270,7 +270,6 @@ class SACStateGoal(Algorithm):
         return action.squeeze().cpu().numpy()
 
     def select_action(self, state, goal):
-        q_vals = []
         current_1d_goal = self.location_to_number(goal)
         list_possible_actions = list(self.goal_list[current_1d_goal])
         if bool(list_possible_actions):
@@ -288,7 +287,7 @@ class SACStateGoal(Algorithm):
         goal_tensor = torch.FloatTensor(goal).to(device)
         state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
         with torch.no_grad():
-            v_val = self.value(state_goal).numpy()
+            v_val = self.value(state_goal).cpu().numpy()
         return v_val
 
     def update(self, replay_buffer, batch_size):
