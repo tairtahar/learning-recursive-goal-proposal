@@ -38,6 +38,7 @@ class Hierarchy:
             css = starting_state_list[1]  # current_starting_point
             cgs = starting_state_list[0]
             accumulated_reward = 0
+            already_proposed = [css, cgs]
 
             # Start LRGP
             while True:
@@ -54,7 +55,7 @@ class Hierarchy:
                     while True:
                         new_ss = self.high.select_action(css, cgs)
                         count_proposals += 1
-                        if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in starting_state_list:
+                        if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in already_proposed:
                             break
                         if count_proposals % 40 == 0:
                             print(str(count_proposals), " bad proposals were given")
@@ -64,10 +65,12 @@ class Hierarchy:
                     if not self.low.is_allowed(new_ss, epsilon) or \
                             np.array_equal(new_ss, cgs) or \
                             np.array_equal(new_ss, css):
-                        self.high.add_penalization((css, new_ss, -high_h, css, cgs, True))
-                            # (css, new_ss, -high_h, css, cgs, True))  # ns not used
+                        # self.high.add_penalization((css, new_ss, -high_h, css, cgs, True))
+                        # (css, new_ss, -high_h, css, cgs, True))  # ns not used
+                        kuku = 1
                     else:
                         # Adding the new goal in between cgs ans css
+                        already_proposed.append(new_ss)
                         self.high.on_episode_end()
                         self.low.on_episode_end()
                         starting_state_list.insert(1, tuple(new_ss))
@@ -143,7 +146,7 @@ class Hierarchy:
 
                     # Add run info for high agent to create transitions
                     if not np.array_equal(state_high, next_state_high):
-                            # and if last_state is not None:
+                        # and if last_state is not None:
                         # self.high.add_run_info((last_state, new_ss, accumulate_reward, tuple(css), self.env.state_goal_mapper(cgs)))
                         # self.high.add_run_info((state_high, cgs, accumulated_reward, next_state_high))
                         self.high.add_run_info((state_high, cgs, next_state_high))
@@ -171,7 +174,8 @@ class Hierarchy:
 
             # Test to validate training
             if (episode + 1) % test_each == 0:
-                subg, subg_a, steps, steps_a, max_subg, sr, low_sr, bad_propose = self.test(n_episodes_test, low_h, high_h, render)
+                subg, subg_a, steps, steps_a, max_subg, sr, low_sr, bad_propose = self.test(n_episodes_test, low_h,
+                                                                                            high_h, render)
                 curr_time = (time.time() - start_time) / 60
                 print(f"Episode {episode + 1:5d}: {100 * sr:5.1f}% Achieved")
                 self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr, bad_propose,
@@ -213,6 +217,7 @@ class Hierarchy:
             # css = starting_state_list[1]
             css = starting_state_list[1]  # current_starting_point
             cgs = starting_state_list[0]
+            already_proposed = [css, cgs]
 
             # Start LRGP
             while True:
@@ -231,7 +236,7 @@ class Hierarchy:
                     count_proposals = 0
                     while True:
                         count_proposals += 1
-                        if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in starting_state_list:
+                        if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in already_proposed:
                             break
                         else:
                             new_ss = self.high.select_action_test(css, cgs, True)
@@ -244,6 +249,7 @@ class Hierarchy:
                     if not self.low.is_allowed(new_ss, 0):
                         add_noise = True
                     else:
+                        already_proposed.append(new_ss)
                         starting_state_list.insert(1, tuple(new_ss))
                         if len(starting_state_list) > 1:
                             cgs = starting_state_list[0]
@@ -355,13 +361,14 @@ class Hierarchy:
             starting_state_list = [tuple(ep_goal), tuple(state)]
             self.env.mark_starting_state(state)
 
+            cgs = starting_state_list[0]
+            if self.env.manual_state(starting_state_list[1]):
+                css = starting_state_list[1]  # current_starting_point
+            self.env.render()
+            already_proposed = [cgs, css]
             # Start LRGP
             while True:
                 # css = starting_state_list[1]  # current_starting_point
-                cgs = starting_state_list[0]
-                if self.env.manual_state(starting_state_list[1]):
-                    css = starting_state_list[1]  # current_starting_point
-                self.env.render()
 
                 # Check if reachable
                 reachable = self.low.is_reachable(css, cgs, 0)
@@ -378,7 +385,7 @@ class Hierarchy:
                     new_ss = self.high.select_action_test(css, cgs, add_noise)
                     while True:
                         count_proposals += 1
-                        if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in starting_state_list:
+                        if not self.env.check_loc_wall(new_ss) and tuple(new_ss) not in already_proposed:
                             break
                         else:
                             new_ss = self.high.select_action_test(css, cgs, True)
@@ -397,10 +404,15 @@ class Hierarchy:
                         self.env.remove_goal()
                         self.env.render()
                     else:
+                        already_proposed.append(new_ss)
                         starting_state_list.insert(1, tuple(new_ss))
                         self.env.add_goal(self.env.state_goal_mapper(new_ss))
                         self.env.render()
                         add_noise = False
+                        cgs = starting_state_list[0]
+                        if self.env.manual_state(starting_state_list[1]):
+                            css = starting_state_list[1]  # current_starting_point
+                        self.env.render()
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
@@ -430,14 +442,14 @@ class Hierarchy:
 
                         if achieved:
                             starting_state_list = starting_state_list[1:]
-                            # if len(starting_state_list) == 1:
-                            #     break
-                            css = starting_state_list[1]  # current_starting_point
-                            cgs = starting_state_list[0]
-                            # self.env.remove_goal()
-                            # self.env.add_goal(self.env.state_goal_mapper(starting_state_list[0]))
-                            self.env.render()
-                            break
+                            if len(starting_state_list) > 1:
+                                #     break
+                                css = starting_state_list[1]  # current_starting_point
+                                cgs = starting_state_list[0]
+                                # self.env.remove_goal()
+                                # self.env.add_goal(self.env.state_goal_mapper(starting_state_list[0]))
+                                self.env.render()
+                                break
 
                         # Max env steps
                         if done and len(info) > 0:
