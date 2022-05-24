@@ -113,6 +113,7 @@ class Sample_goal:
                     solution.append(tuple(state))
 
                     # Create reachable transitions from run info
+                    self.high.solution_to_vicinity(self.low.run_steps, low_h)
                     self.low.create_reachable_transitions(goal, achieved)
 
                     # Add run info for high agent to create transitions
@@ -277,27 +278,27 @@ class Sample_goal:
             state, ep_goal = self.env.reset()
             goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             # goal = ep_goal
+            self.low.add_run_step(tuple(state))
             solution = [tuple(state)]
             achieved = self._goal_achived(state, goal)
             if not achieved:
                 for run_iter in range(5):  # TODO: make this adjustable
-                    last_state = self.markovian_walk(state, goal, low_h)
-                    self.low.create_reachable_transitions(goal, achieved)
-                    goal = state
+                    # last_state = self.markovian_walk(state, goal, low_h)
+                    last_state = self.run_setps(state, goal, low_h, epsilon)
                     state = last_state
-                    solution.append(tuple(last_state))
-                    self.low.on_episode_end()
-            self.high.solution_to_vicinity(solution, low_h)
+                self.high.solution_to_vicinity(self.low.run_steps, low_h)
+                self.low.create_reachable_transitions(goal, achieved)
+                # goal = state
+                #
+            self.low.on_episode_end()
 
             # Update networks / policies
             if (sample + 1) % update_each == 0:
                 # self.high.update(n_updates, batch_size)
-                self.low.update(3, batch_size)  # TODO: n_updates make adjustable
+                self.low.update(n_updates, batch_size)  # TODO: n_updates make adjustable
 
             if (sample + 1) % 50 == 0:
                 print("low sampling target " + str(sample + 1))
-
-
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
         return np.array_equal(state, goal)
@@ -316,8 +317,8 @@ class Sample_goal:
             state = next_state
 
             # Add info to reachable and allowed buffers
-            self.low.add_run_step(state)
-            self.low.add_allowed_goal(state)
+            self.low.add_run_step(tuple(state))
+            self.low.add_allowed_goal(tuple(state))
 
             # Don't count turns
             if action == SimpleMiniGridEnv.Actions.forward:

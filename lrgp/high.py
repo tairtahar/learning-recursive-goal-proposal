@@ -82,13 +82,17 @@ class HighPolicy:
     def solution_to_vicinity(self, solution, low_h):
         solution.reverse()
         for i, element in enumerate(solution):
+            element = tuple(element)
             goal_1dim = self.alg.location_to_number(element)
+            added = 0
             for j in range(1, len(solution) - i):
-                if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
-                    self.alg.goal_list[goal_1dim].add(solution[i + j])
-                    curr_state_1dim = self.alg.location_to_number(solution[i + j])
+                element2 = tuple(solution[i + j])
+                if element2 != element:
+                    added += 1
+                    self.alg.goal_list[goal_1dim].add(element2)
+                    curr_state_1dim = self.alg.location_to_number(element2)
                     self.alg.goal_list[curr_state_1dim].add(element)
-                if j >= low_h:
+                if added >= low_h:
                     break
 
     def add_run_info(self, info: tuple):
