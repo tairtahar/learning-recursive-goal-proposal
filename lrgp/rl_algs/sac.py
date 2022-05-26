@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Normal
-
+import pickle
 from .base import FFNetwork, Algorithm
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -252,6 +252,7 @@ class SACStateGoal(Algorithm):
         self.gamma = gamma
         self.tau = tau
         self.alpha = alpha
+        self.goal_list = []
 
     def select_action(self, state, goal, test):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
@@ -318,11 +319,23 @@ class SACStateGoal(Algorithm):
 
     def save(self, path, job_name):
         torch.save(self.policy.state_dict(), os.path.join(path, f"{job_name}_actor.pth"))
+        torch.save(self.value.state_dict(), os.path.join(path, f"{job_name}_critic.pth"))
+        torch.save(self.q_1.state_dict(), os.path.join(path, f"{job_name}_q.pth"))
+        with open(os.path.join(path, f"{job_name}_goal_list.pickle"), 'wb') as f:
+            # for _set in self.goal_list:
+            pickle.dump(self.goal_list, f)
         # torch.save(self.value.state_dict(), os.path.join(path, f"{job_name}_critic.pth"))
         # torch.save(self.q_1.state_dict(), os.path.join(path, f"{job_name}_q.pth"))
 
     def load(self, path, job_name):
         self.policy.load_state_dict(torch.load(os.path.join(path, f"{job_name}_actor.pth"), device))
+        self.value.load_state_dict(torch.load(os.path.join(path, f"{job_name}_critic.pth"), device))
+        self.q_1.load_state_dict(torch.load(os.path.join(path, f"{job_name}_q.pth"), device))
+
+        self.copy_parameters(self.q_1, self.q_2)
+        self.copy_parameters(self.value, self.value_target)
+        with open(os.path.join(path, f"{job_name}_goal_list.pickle"), 'rb') as f:
+            self.goal_list = pickle.load(f)
         # self.value.load_state_dict(torch.load(os.path.join(path, f"{job_name}_critic.pth"), device))
         # self.q_1.load_state_dict(torch.load(os.path.join(path, f"{job_name}_q.pth"), device))
 

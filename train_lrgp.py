@@ -36,7 +36,8 @@ args = vars(args)
 
 # Make env
 env = gym.make(args['env'])
-env.max_steps = 50
+# env.max_steps = 60
+print(env.max_steps)
 
 # Seed everything
 env.seed(args['seed'])
