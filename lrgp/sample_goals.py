@@ -113,7 +113,6 @@ class Sample_goal:
                     # Create reachable transitions from run info
                     self.low.create_reachable_transitions(goal, achieved)
 
-
                     # Add run info for high agent to create transitions
                     if not np.array_equal(state_high, next_state_high):
                         self.high.add_run_info((state_high, goal, next_state_high))
@@ -291,10 +290,10 @@ class Sample_goal:
             solution.reverse()
             for i, element in enumerate(solution):
                 goal_1dim = self.env.location_to_number(element)
-                for j in range(1, len(solution)-i):
-                    if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i+j]):
-                        self.high.goal_list[goal_1dim].add(solution[i+j])
-                        curr_state_1dim = self.env.location_to_number(solution[i+j])
+                for j in range(1, len(solution) - i):
+                    if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
+                        self.high.goal_list[goal_1dim].add(solution[i + j])
+                        curr_state_1dim = self.env.location_to_number(solution[i + j])
                         self.high.goal_list[curr_state_1dim].add(element)
                     if j >= low_h:
                         break
@@ -319,14 +318,14 @@ class Sample_goal:
                 if j >= low_h:
                     break
 
-
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
         return np.array_equal(state, goal)
 
-
     def run_setps(self, state: np.ndarray, goal: np.ndarray, low_h: int, epsilon: float):
         low_steps = low_fwd = 0
+        self.low.add_run_step(state)
         max_env_steps = False
+        self.low.add_allowed_goal(state)
         achieved = self._goal_achived(state, goal)
         while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
             action = self.low.select_action(state, goal, epsilon)
