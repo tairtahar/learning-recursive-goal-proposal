@@ -15,16 +15,15 @@ class Sample_goal:
         self.low = LowPolicy(env)
         self.high = HighPolicy(env)
         self.logs = list()
-
-        self.possible_path = []
-        self.q_possible_path = []
-        self.idx_possible_path = 0
         self.success_flag = False
-        self.scan_in_level = []
+        self.radius = 6
+        self.back_forth = 5
 
     def train(self, n_samples_low: int, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
         start_time = time.time()
+        self.back_forth = kwargs['back_forth_low']
+        self.radius = kwargs['radius_h']
         self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
         for episode in range(n_episodes):
 
@@ -278,7 +277,7 @@ class Sample_goal:
             solution = [tuple(state)]
             achieved = self._goal_achived(state, goal)
             if not achieved:
-                for run_iter in range(5):  # TODO: make this adjustable
+                for run_iter in range(self.back_forth):
                     last_state, max_env_steps = self.run_setps(state, goal, low_h, epsilon)
                     self.low.create_reachable_transitions(goal, achieved)
                     goal = state
@@ -286,7 +285,7 @@ class Sample_goal:
                     solution.append(tuple(last_state))
                     self.low.on_episode_end()
 
-            self.solution_to_vicinity(solution, low_h)
+            self.solution_to_vicinity(solution)
 
             # Update networks / policies
             if (sample + 1) % update_each == 0:
@@ -296,7 +295,7 @@ class Sample_goal:
             if (sample + 1) % 50 == 0:
                 print("low sampling target " + str(sample + 1))
 
-    def solution_to_vicinity(self, solution, low_h):
+    def solution_to_vicinity(self, solution):
         solution.reverse()
         for i, element in enumerate(solution):
             goal_1dim = self.env.location_to_number(element)
@@ -305,7 +304,7 @@ class Sample_goal:
                     self.high.alg.goal_list[goal_1dim].add(solution[i + j])
                     curr_state_1dim = self.env.location_to_number(solution[i + j])
                     self.high.alg.goal_list[curr_state_1dim].add(element)
-                if j >= low_h:
+                if j >= self.radius:
                     break
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
