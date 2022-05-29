@@ -4,7 +4,7 @@ import numpy as np
 from gym_simple_minigrid.minigrid import SimpleMiniGridEnv
 from typing import Callable, Tuple
 
-from .high2 import HighPolicy
+from .high import HighPolicy
 from .low import LowPolicy
 import time
 
@@ -149,7 +149,7 @@ class Sample_goal:
                 self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr,
                                   len(self.high.replay_buffer), len(self.low.replay_buffer),
                                   len(self.low.reachable_buffer), len(self.low.allowed_buffer), curr_time])
-                self.high.alg.goal_list = self.high.goal_list.copy()
+                # self.high.alg.goal_list = self.high.goal_list.copy()
                 self.save(os.path.join('logs', kwargs['job_name']))
 
     def _test(self, n_episodes: int, low_h: int, high_h: int, **kwargs) -> Tuple[np.ndarray, ...]:

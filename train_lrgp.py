@@ -4,9 +4,8 @@ import gym
 import gym_simple_minigrid  # just to register envs
 import numpy as np
 import torch
-from lrgp.sample_goals import Sample_goal
+from lrgp.separate_trainining import Sample_goal
 
-from lrgp.hierarchy import Hierarchy
 
 
 parser = argparse.ArgumentParser()
@@ -30,13 +29,13 @@ parser.add_argument('--epsilon_min', type=float, default=0.1, help='Minimum expl
                                                                     'policy')
 parser.add_argument('--epsilon_decay', type=float, default=0.9994, help='Decay for epsilon')
 parser.add_argument('--n_samples_low', type=int, default=0, help='Initial training with low level')
-
+parser.add_argument('--max_env', type=int, default=120, help='maximum number of steps for episode')
 args = parser.parse_args()
 args = vars(args)
 
 # Make env
 env = gym.make(args['env'])
-# env.max_steps = 60
+env.max_steps = args['max_env']
 print(env.max_steps)
 
 # Seed everything

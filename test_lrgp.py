@@ -3,9 +3,7 @@ import argparse
 import gym
 import gym_simple_minigrid  # just to register envs
 import numpy as np
-from lrgp.sample_goals import Sample_goal
-
-from lrgp.hierarchy import Hierarchy
+from lrgp.separate_trainining import Sample_goal
 
 parser = argparse.ArgumentParser()
 
@@ -41,7 +39,7 @@ tester.load(os.path.join('checkpoints', args['checkpoint_name']))
 _, subg_a, _, steps_a, max_subg, sr, low_sr = tester.test(**args)
 
 print(f"Metrics after {args['n_episodes']} testing episodes:")
-print(f"\t{sr*100:.1f}% episodes achived")
+print(f"\t{sr*100:.1f}% episodes achieved")
 print(f"\t{max_subg*100:.1f}% failed due to max subgoal proposals")
 print(f"\t{(1-sr-max_subg)*100:.1f}% failed due to max env steps or getting stuck (bad low policy)")
 print()

@@ -4,7 +4,9 @@ import torch
 
 from .rl_algs.sac import SACStateGoal
 from .utils.utils import ReplayBuffer
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class HighPolicy:
     def __init__(self, env: SimpleMiniGridEnv, gamma: float = 1., tau: float = 0.005, br_size: int = 1e6):
@@ -37,7 +39,7 @@ class HighPolicy:
         self.clip_high = action_high
 
         self.replay_buffer = ReplayBuffer(br_size)
-        self.goal_list = [set() for _ in range(self.env.height*self.env.width)]
+        self.alg.goal_list = [set() for _ in range(self.env.height * self.env.width)]
 
         self.episode_runs = list()
 
@@ -52,19 +54,16 @@ class HighPolicy:
         # return action.astype(np.int)
 
         #
-        possible_suggestions = []
-        q_vals = []
         current_1d_goal = self.env.location_to_number(goal)
-        if bool(self.goal_list[current_1d_goal]):
-            for exp in self.goal_list[current_1d_goal]:
-                if type(exp) == tuple:
-                    action = exp
-                else:
-                    action = exp[0]
-                possible_suggestions.append(action)
-                q_value = self.calc_v_vals(state, action) + self.calc_v_vals(action, goal)
-                q_vals.append(q_value)
-        if len(q_vals) == 0:
+        list_possible_actions = list(self.alg.goal_list[current_1d_goal])
+        if bool(list_possible_actions):
+            state_list = [state for _ in range(len(list_possible_actions))]
+            goal_list = [goal for _ in range(len(list_possible_actions))]
+            q_values = self.calc_v_vals(state_list, list_possible_actions) + \
+                       self.calc_v_vals(list_possible_actions, goal_list)
+            max_idx = np.argmax(np.array(q_values))
+            return list_possible_actions[max_idx]
+        else:
             # SAC action is continuous [low, high + 1]
             action = self.alg.select_action(state, goal, False)
             # Discretize using floor --> discrete [low, high + 1]
@@ -74,12 +73,19 @@ class HighPolicy:
             return action.astype(np.int)  # [0]
             # idx = np.random.randint(0, len(self.replay_buffer.buffer))
             # return list(self.replay_buffer.buffer)[idx][1]
-        max_idx = np.argmax(np.array(q_vals))
-        return possible_suggestions[max_idx]
 
     def select_action_test(self, state: np.ndarray, goal: np.ndarray, add_noise: bool = False) -> np.ndarray:
-        action = self.select_action(state, goal)
-        return action
+        # action = self.select_action(state, goal)
+        # return action
+        current_1d_goal = self.env.location_to_number(goal)
+        list_possible_actions = list(self.alg.goal_list[current_1d_goal])
+        if bool(list_possible_actions):
+            state_list = [state for _ in range(len(list_possible_actions))]
+            goal_list = [goal for _ in range(len(list_possible_actions))]
+            q_values = self.calc_v_vals(state_list, list_possible_actions) + \
+                       self.calc_v_vals(list_possible_actions, goal_list)
+            max_idx = np.argmax(np.array(q_values))
+            return list_possible_actions[max_idx]
         # #
         # noise = 0
         # if add_noise:
@@ -105,9 +111,9 @@ class HighPolicy:
             goal_1dim = self.env.location_to_number(element)
             for j in range(1, len(solution) - i):
                 if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
-                    self.goal_list[goal_1dim].add(solution[i + j])
+                    self.alg.goal_list[goal_1dim].add(solution[i + j])
                     curr_state_1dim = self.env.location_to_number(solution[i + j])
-                    self.goal_list[curr_state_1dim].add(element)
+                    self.alg.goal_list[curr_state_1dim].add(element)
                 if j >= low_h:  # TODO: Make adjustable, argparse?
                     break
 
@@ -124,12 +130,12 @@ class HighPolicy:
                 for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
                     # Used as intermediate goal or proposed action
                     # hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
-                    self.replay_buffer.add(state_1,             # state
-                                           next_state_2,    # action <-> proposed goal
-                                           -(j - i + 1),        # reward <-> - N runs
-                                           next_state_1,        # (NOT USED) next_state
-                                           next_state_3,    # goal
-                                           True)                # done --> Q-value = Reward (no bootstrap / Bellman eq)
+                    self.replay_buffer.add(state_1,  # state
+                                           next_state_2,  # action <-> proposed goal
+                                           -(j - i + 1),  # reward <-> - N runs
+                                           next_state_1,  # (NOT USED) next_state
+                                           next_state_3,  # goal
+                                           True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
         self.episode_runs = list()
 
     # def calc_q_vals(self, state, action, goal):
@@ -149,9 +155,8 @@ class HighPolicy:
         goal_tensor = torch.FloatTensor(goal).to(device)
         state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
         with torch.no_grad():
-            v_val = self.alg.value(state_goal).numpy()[0]
+            v_val = self.alg.value(state_goal).cpu().numpy()
         return v_val
-
 
     def update(self, n_updates: int, batch_size: int):
         if len(self.replay_buffer) > 0:
