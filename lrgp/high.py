@@ -105,7 +105,7 @@ class HighPolicy:
     def add_penalization(self, transition: tuple):
         self.replay_buffer.add(*transition)
 
-    def on_episode_end(self, solution: list, low_h: int):
+    def on_episode_end(self, solution: list, radius: int):
         solution.reverse()
         for i, element in enumerate(solution):
             goal_1dim = self.env.location_to_number(element)
@@ -114,7 +114,7 @@ class HighPolicy:
                     self.alg.goal_list[goal_1dim].add(solution[i + j])
                     curr_state_1dim = self.env.location_to_number(solution[i + j])
                     self.alg.goal_list[curr_state_1dim].add(element)
-                if j >= low_h:  # TODO: Make adjustable, argparse?
+                if j >= radius:
                     break
 
         # Create MonteCarlo-based transitions from episode runs

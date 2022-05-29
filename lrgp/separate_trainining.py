@@ -132,7 +132,7 @@ class Sample_goal:
                         break
 
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
-            self.high.on_episode_end(solution, low_h)
+            self.high.on_episode_end(solution, self.radius)
             self.low.on_episode_end()
 
             # Update networks / policies
