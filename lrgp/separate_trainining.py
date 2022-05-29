@@ -277,7 +277,7 @@ class Sample_goal:
             solution = [tuple(state)]
             achieved = self._goal_achived(state, goal)
             if not achieved:
-                for run_iter in range(self.back_forth):  # TODO: make this adjustable
+                for run_iter in range(self.back_forth):
                     last_state, max_env_steps = self.run_setps(state, goal, low_h, epsilon)
                     self.low.create_reachable_transitions(goal, achieved)
                     goal = state
