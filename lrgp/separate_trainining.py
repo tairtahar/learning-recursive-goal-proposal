@@ -16,11 +16,7 @@ class Sample_goal:
         self.high = HighPolicy(env)
         self.logs = list()
 
-        self.possible_path = []
-        self.q_possible_path = []
-        self.idx_possible_path = 0
         self.success_flag = False
-        self.scan_in_level = []
 
     def train(self, n_samples_low: int, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
@@ -77,9 +73,9 @@ class Sample_goal:
                     low_steps = 0
 
                     # Add state to compute reachable pairs
-                    self.low.add_run_step(state)
+                    # self.low.add_run_step(state)
                     # Add current position as allowed goal to overcome the incomplete goal space problem
-                    self.low.add_allowed_goal(state)
+                    # self.low.add_allowed_goal(state)
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
@@ -87,13 +83,13 @@ class Sample_goal:
                         next_state, reward, done, info = self.env.step(action)
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, goal)
-                        self.low.add_transition((state, action, int(achieved) - 1, next_state, goal, achieved))
+                        # self.low.add_transition((state, action, int(achieved) - 1, next_state, goal, achieved))
 
                         state = next_state
 
                         # Add info to reachable and allowed buffers
-                        self.low.add_run_step(state)
-                        self.low.add_allowed_goal(state)
+                        # self.low.add_run_step(state)
+                        # self.low.add_allowed_goal(state)
 
                         # Don't count turns
                         if action == SimpleMiniGridEnv.Actions.forward:
@@ -111,7 +107,7 @@ class Sample_goal:
                     solution.append(tuple(state))
 
                     # Create reachable transitions from run info
-                    self.low.create_reachable_transitions(goal, achieved)
+                    # self.low.create_reachable_transitions(goal, achieved)
 
                     # Add run info for high agent to create transitions
                     if not np.array_equal(state_high, next_state_high):
@@ -134,12 +130,12 @@ class Sample_goal:
 
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
             self.high.on_episode_end(solution, low_h)
-            self.low.on_episode_end()
+            # self.low.on_episode_end()
 
             # Update networks / policies
             if (episode + 1) % update_each == 0:
                 self.high.update(n_updates, batch_size)
-                self.low.update(n_updates, batch_size)
+                # self.low.update(n_updates, batch_size)
 
             # Test to validate training
             if (episode + 1) % test_each == 0:
