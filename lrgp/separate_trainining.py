@@ -151,7 +151,6 @@ class Sample_goal:
                 self.save(os.path.join('logs', kwargs['job_name']))
 
     def _test(self, n_episodes: int, low_h: int, high_h: int, **kwargs) -> Tuple[np.ndarray, ...]:
-
         # Log metrics
         log_proposals = list()
         log_proposals_a = list()
@@ -344,6 +343,8 @@ class Sample_goal:
         return state, max_env_steps
 
     def test(self, n_episodes: int, low_h: int, high_h: int, render: bool = False, **kwargs) -> Tuple[np.ndarray, ...]:
+        self.back_forth = kwargs['back_forth_low']
+        self.radius = kwargs['radius_h']
         if render:
             return self._test_render(n_episodes, low_h, high_h)
         else:

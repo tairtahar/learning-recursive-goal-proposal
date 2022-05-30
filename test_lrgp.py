@@ -18,6 +18,8 @@ parser.add_argument('--high_h', type=int, default=15, help='High horizon: maximu
                                                            'episode')
 
 parser.add_argument('--render', action='store_true', help='Visualize the agent\'s learned policy')
+parser.add_argument('--radius_h', type=int, default=6, help='radius for high policy learning suggestions')
+parser.add_argument('--back_forth_low', type=int, default=5, help='repetitions back and forward in low training')
 
 args = parser.parse_args()
 args = vars(args)
