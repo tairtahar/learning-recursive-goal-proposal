@@ -301,8 +301,8 @@ class Sample_goal:
             for j in range(1, len(solution) - i):
                 if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
                     self.high.alg.goal_list[goal_1dim].add(solution[i + j])
-                    curr_state_1dim = self.env.location_to_number(solution[i + j])
-                    self.high.alg.goal_list[curr_state_1dim].add(element)
+                    # curr_state_1dim = self.env.location_to_number(solution[i + j])
+                    # self.high.alg.goal_list[curr_state_1dim].add(element)
                 if j >= self.radius:
                     break
 
@@ -343,8 +343,6 @@ class Sample_goal:
         return state, max_env_steps
 
     def test(self, n_episodes: int, low_h: int, high_h: int, render: bool = False, **kwargs) -> Tuple[np.ndarray, ...]:
-        self.back_forth = kwargs['back_forth_low']
-        self.radius = kwargs['radius_h']
         if render:
             return self._test_render(n_episodes, low_h, high_h)
         else:
