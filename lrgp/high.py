@@ -86,6 +86,7 @@ class HighPolicy:
                        self.calc_v_vals(list_possible_actions, goal_list)
             max_idx = np.argmax(np.array(q_values))
             return list_possible_actions[max_idx]
+
         # #
         # noise = 0
         # if add_noise:
@@ -112,8 +113,8 @@ class HighPolicy:
             for j in range(1, len(solution) - i):
                 if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
                     self.alg.goal_list[goal_1dim].add(solution[i + j])
-                    curr_state_1dim = self.env.location_to_number(solution[i + j])
-                    self.alg.goal_list[curr_state_1dim].add(element)
+                    # curr_state_1dim = self.env.location_to_number(solution[i + j])
+                    # self.alg.goal_list[curr_state_1dim].add(element)
                 if j >= radius:
                     break
 
