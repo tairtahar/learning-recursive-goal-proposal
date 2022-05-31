@@ -3,9 +3,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Normal
-import numpy as np
+
 from .base import FFNetwork, Algorithm
-import pickle
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -23,7 +22,7 @@ class Actor(nn.Module):
     """
 
     def __init__(self, state_dim, action_dim, hidden_dims, action_bound, action_offset, min_log_sigma=-20,
-                 max_log_sigma=2, requires_grad=True, width=15):
+                 max_log_sigma=2, requires_grad=True):
         super().__init__()
 
         self.fc = FFNetwork(state_dim, hidden_dims[-1], hidden_dims[:-1], nn.ReLU(), requires_grad).to(device)
@@ -37,9 +36,6 @@ class Actor(nn.Module):
         self.max_log_sigma = max_log_sigma
 
         self.epsilon = 1e-6
-
-        # self.width = width
-        # self.goal_list = [set() for _ in range(self.env.height*self.env.width)]
 
     def forward(self, state):
         x = self.fc(state)
@@ -230,8 +226,6 @@ class SACStateGoal(Algorithm):
             actor_lr=3e-4,
             critic_lr=3e-4,
             q_lr=3e-4,
-            width=15,
-            height=15
     ):
         super().__init__()
 
@@ -258,37 +252,13 @@ class SACStateGoal(Algorithm):
         self.gamma = gamma
         self.tau = tau
         self.alpha = alpha
-        self.width = width
-        self.height = height
-        self.goal_list = [set() for _ in range(self.height * self.width)]
 
-    def select_action_policy(self, state, goal, test):
+    def select_action(self, state, goal, test):
         state = torch.FloatTensor(state).unsqueeze(0).to(device)
         goal = torch.FloatTensor(goal).unsqueeze(0).to(device)
         state_goal = torch.cat([state, goal], dim=-1)
         action = self.policy.select_action(state_goal, test)
         return action.squeeze().cpu().numpy()
-
-    def select_action(self, state, goal):
-        current_1d_goal = self.location_to_number(goal)
-        list_possible_actions = list(self.goal_list[current_1d_goal])
-        if bool(list_possible_actions):
-            state_list = [state for _ in range(len(list_possible_actions))]
-            goal_list = [goal for _ in range(len(list_possible_actions))]
-            q_values = self.calc_v_vals(state_list, list_possible_actions) + \
-                       self.calc_v_vals(list_possible_actions, goal_list)
-        else:
-            return False, tuple()
-        max_idx = np.argmax(np.array(q_values))
-        return True, list_possible_actions[max_idx]
-
-    def calc_v_vals(self, state, goal):
-        state_tensor = torch.FloatTensor(state).to(device)
-        goal_tensor = torch.FloatTensor(goal).to(device)
-        state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
-        with torch.no_grad():
-            v_val = self.value(state_goal).cpu().numpy()
-        return v_val
 
     def update(self, replay_buffer, batch_size):
         # Sample a batch of transitions from replay buffer
@@ -348,29 +318,13 @@ class SACStateGoal(Algorithm):
 
     def save(self, path, job_name):
         torch.save(self.policy.state_dict(), os.path.join(path, f"{job_name}_actor.pth"))
-        torch.save(self.value.state_dict(), os.path.join(path, f"{job_name}_critic.pth"))
-        torch.save(self.q_1.state_dict(), os.path.join(path, f"{job_name}_q.pth"))
+        # torch.save(self.value.state_dict(), os.path.join(path, f"{job_name}_critic.pth"))
         # torch.save(self.q_1.state_dict(), os.path.join(path, f"{job_name}_q.pth"))
-        with open(os.path.join(path, f"{job_name}_goal_list.pickle"), 'wb') as f:
-            # for _set in self.goal_list:
-            pickle.dump(self.goal_list, f)
 
     def load(self, path, job_name):
         self.policy.load_state_dict(torch.load(os.path.join(path, f"{job_name}_actor.pth"), device))
-        self.value.load_state_dict(torch.load(os.path.join(path, f"{job_name}_critic.pth"), device))
-        self.q_1.load_state_dict(torch.load(os.path.join(path, f"{job_name}_q.pth"), device))
+        # self.value.load_state_dict(torch.load(os.path.join(path, f"{job_name}_critic.pth"), device))
+        # self.q_1.load_state_dict(torch.load(os.path.join(path, f"{job_name}_q.pth"), device))
 
-        self.copy_parameters(self.q_1, self.q_2)
-        self.copy_parameters(self.value, self.value_target)
-        with open(os.path.join(path, f"{job_name}_goal_list.pickle"), 'rb') as f:
-            self.goal_list = pickle.load(f)
-
-    def location_to_number(self, state):
-        # if len(state) == 3:
-        #     dir = state[-1]
-        # else:
-        #     dir = 0
-        state = state[0:2]
-        x, y = state
-        # return dir*self.width*self.height+ x*self.width + y
-        return x * self.width + y
+        # self.copy_parameters(self.q_1, self.q_2)
+        # self.copy_parameters(self.critic, self.critic_target)
