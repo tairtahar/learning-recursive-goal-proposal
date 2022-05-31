@@ -3,10 +3,7 @@ import argparse
 import gym
 import gym_simple_minigrid  # just to register envs
 import numpy as np
-from lrgp.sample_goals import Sample_goal
-from lrgp.rl_algs.ddqn import DDQNStateGoal
-
-from lrgp.hierarchy import Hierarchy
+from lrgp.policy import Policy_ddqn
 
 parser = argparse.ArgumentParser()
 
@@ -21,13 +18,15 @@ parser.add_argument('--high_h', type=int, default=15, help='High horizon: maximu
                                                            'episode')
 
 parser.add_argument('--render', action='store_true', help='Visualize the agent\'s learned policy')
+parser.add_argument('--max_env', type=int, default=120, help='maximum number of steps for episode')
 
 args = parser.parse_args()
 args = vars(args)
 
 # Make env
 env = gym.make(args['env'])
-env.max_steps = 60
+env.max_steps = args['max_env']
+print("max env steps" + str(args['max_env']))
 
 # Seed everything
 env.seed(args['seed'])
@@ -35,7 +34,7 @@ np.random.seed(args['seed'])
 
 # Test
 print(f"Testing checkpoint {args['checkpoint_name']}...")
-tester = Sample_goal(env)
+tester = Policy_ddqn(env)
 
 tester.load(os.path.join('checkpoints', args['checkpoint_name']))
 
