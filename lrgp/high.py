@@ -77,16 +77,16 @@ class HighPolicy:
     def select_action_test(self, state: np.ndarray, goal: np.ndarray, add_noise: bool = False) -> np.ndarray:
         # action = self.select_action(state, goal)
         # return action
-        current_1d_goal = self.env.location_to_number(goal)
-        list_possible_actions = list(self.alg.goal_list[current_1d_goal])
-        if bool(list_possible_actions):
-            state_list = [state for _ in range(len(list_possible_actions))]
-            goal_list = [goal for _ in range(len(list_possible_actions))]
-            q_values = self.calc_v_vals(state_list, list_possible_actions) + \
-                       self.calc_v_vals(list_possible_actions, goal_list)
-            max_idx = np.argmax(np.array(q_values))
-            return list_possible_actions[max_idx]
-
+        # current_1d_goal = self.env.location_to_number(goal)
+        # list_possible_actions = list(self.alg.goal_list[current_1d_goal])
+        # if bool(list_possible_actions):
+        #     state_list = [state for _ in range(len(list_possible_actions))]
+        #     goal_list = [goal for _ in range(len(list_possible_actions))]
+        #     q_values = self.calc_v_vals(state_list, list_possible_actions) + \
+        #                self.calc_v_vals(list_possible_actions, goal_list)
+        #     max_idx = np.argmax(np.array(q_values))
+        #     return list_possible_actions[max_idx]
+        return self.select_action(state, goal)
         # #
         # noise = 0
         # if add_noise:
