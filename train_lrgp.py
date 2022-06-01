@@ -6,8 +6,6 @@ import numpy as np
 import torch
 from lrgp.separate_trainining import Sample_goal
 
-
-
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--job_name', type=str, required=True, help='Name to identify this training session')
@@ -26,13 +24,13 @@ parser.add_argument('--high_h', type=int, default=15, help='High horizon: maximu
 parser.add_argument('--epsilon_max', type=float, default=0.65, help='Maximum exploration probability for e-greedy '
                                                                     'policy')
 parser.add_argument('--epsilon_min', type=float, default=0.1, help='Minimum exploration probability for e-greedy '
-                                                                    'policy')
+                                                                   'policy')
 parser.add_argument('--epsilon_decay', type=float, default=0.9994, help='Decay for epsilon')
 parser.add_argument('--n_samples_low', type=int, default=0, help='Initial training with low level')
 parser.add_argument('--max_env', type=int, default=120, help='maximum number of steps for episode')
 parser.add_argument('--radius_h', type=int, default=6, help='radius for high policy learning suggestions')
 parser.add_argument('--back_forth_low', type=int, default=5, help='repetitions back and forward in low training')
-
+parser.add_argument('--num_targets', type=int, default=5, help='number of targets in initial vicinity learning')
 
 args = parser.parse_args()
 args = vars(args)
@@ -40,7 +38,7 @@ args = vars(args)
 # Make env
 env = gym.make(args['env'])
 env.max_steps = args['max_env']
-print(env.max_steps)
+print("max env steps: " + str(env.max_steps))
 
 # Seed everything
 env.seed(args['seed'])
@@ -53,6 +51,7 @@ epsilon_f = lambda i: args['epsilon_min'] + (args['epsilon_max'] - args['epsilon
 
 # Train
 print(f"Running {args['job_name']}...")
+print("ignoring done when performing low level training (sampling) in the begining")
 learner = Sample_goal(env)
 learner.train(**args, epsilon_f=epsilon_f)
 
