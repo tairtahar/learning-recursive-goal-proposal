@@ -20,11 +20,11 @@ class Sample_goal:
         self.back_forth = 5
 
     def train(self, n_samples_low: int, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
-              update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
+              update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, num_targets: int, **kwargs):
         start_time = time.time()
         self.back_forth = kwargs['back_forth_low']
         self.radius = kwargs['radius_h']
-        self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
+        self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f, num_targets)
         for episode in range(n_episodes):
 
             # Noise and epsilon for this episode
@@ -132,7 +132,8 @@ class Sample_goal:
                         break
 
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
-            self.high.on_episode_end(solution, self.radius)
+            self.high.solution_to_vicinity(solution, self.radius)
+            self.high.on_episode_end()
             self.low.on_episode_end()
 
             # Update networks / policies
@@ -267,24 +268,26 @@ class Sample_goal:
                np.array(log_low_success).mean()
 
     def low_policy_learning(self, n_samples: int, low_h: int, update_each: int, n_updates: int, batch_size: int,
-                            epsilon_f: Callable):
+                            epsilon_f: Callable, num_targets: int = 5):
         for sample in range(n_samples):
             epsilon = epsilon_f(sample)
             state, ep_goal = self.env.reset()
             goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             # goal = ep_goal
-            solution = [tuple(state)]
-            achieved = self._goal_achived(state, goal)
-            if not achieved:
-                for run_iter in range(self.back_forth):
-                    last_state, max_env_steps = self.run_setps(state, goal, low_h, epsilon)
-                    self.low.create_reachable_transitions(goal, achieved)
-                    goal = state
-                    state = last_state
-                    solution.append(tuple(last_state))
-                    self.low.on_episode_end()
+            for target in range(num_targets):
+                solution = [tuple(state)]
+                achieved = self._goal_achived(state, goal)
+                if not achieved:
+                    for run_iter in range(self.back_forth):
+                        last_state = self.run_setps(state, goal, low_h*2, epsilon)
+                        self.low.create_reachable_transitions(goal, achieved)
+                        goal = state
+                        state = last_state
+                        solution.append(tuple(last_state))
+                        self.low.on_episode_end()
 
-            self.solution_to_vicinity(solution)
+                self.high.solution_to_vicinity(solution, self.radius)
+                goal = np.concatenate((np.random.randint(0, 14, 2), np.random.randint(0, 3, 1)))
 
             # Update networks / policies
             if (sample + 1) % update_each == 0:
@@ -294,17 +297,7 @@ class Sample_goal:
             if (sample + 1) % 50 == 0:
                 print("low sampling target " + str(sample + 1))
 
-    def solution_to_vicinity(self, solution):
-        solution.reverse()
-        for i, element in enumerate(solution):
-            goal_1dim = self.env.location_to_number(element)
-            for j in range(1, len(solution) - i):
-                if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
-                    self.high.alg.goal_list[goal_1dim].add(solution[i + j])
-                    # curr_state_1dim = self.env.location_to_number(solution[i + j])
-                    # self.high.alg.goal_list[curr_state_1dim].add(element)
-                if j >= self.radius:
-                    break
+
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
         return np.array_equal(state, goal)
@@ -336,11 +329,11 @@ class Sample_goal:
             low_steps += 1
 
             # Max env steps
-            if done and len(info) > 0:
-                max_env_steps = True
-                return state, max_env_steps
+            # if done and len(info) > 0:
+            #     max_env_steps = True
+            #     return state, max_env_steps
 
-        return state, max_env_steps
+        return state #, max_env_steps
 
     def test(self, n_episodes: int, low_h: int, high_h: int, render: bool = False, **kwargs) -> Tuple[np.ndarray, ...]:
         if render:
