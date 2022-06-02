@@ -118,9 +118,7 @@ class HighPolicy:
                 if j >= radius:
                     break
 
-    def on_episode_end(self, solution: list, radius: int):
-
-
+    def on_episode_end(self):
         # Create MonteCarlo-based transitions from episode runs
         # Hindsight goals --> Next state as proposed goal (as if low level acts optimally)
 
