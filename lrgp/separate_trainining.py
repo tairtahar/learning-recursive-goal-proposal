@@ -269,7 +269,7 @@ class Sample_goal:
     def low_policy_learning(self, n_samples: int, low_h: int, update_each: int, n_updates: int, batch_size: int,
                             epsilon_f: Callable):
         for sample in range(n_samples):
-            epsilon = epsilon_f(sample) /5.07
+            epsilon = epsilon_f(sample)
             state, ep_goal = self.env.reset()
             goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             # goal = ep_goal
