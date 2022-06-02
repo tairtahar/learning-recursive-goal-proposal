@@ -29,6 +29,7 @@ class Hierarchy:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
+            ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             goal_stack = [ep_goal]
 
             # Start LRGP
@@ -51,7 +52,7 @@ class Hierarchy:
                     # Penalize this proposal and avoid adding it to stack
                     if not self.low.is_allowed(new_goal, epsilon) or \
                             np.array_equal(new_goal, goal) or \
-                            np.array_equal(new_goal, self.env.state_goal_mapper(state)):
+                            np.array_equal(new_goal, state):
                         self.high.add_penalization((state, new_goal, -high_h, state, goal, True))  # ns not used
                     else:
                         goal_stack.append(new_goal)
@@ -163,6 +164,7 @@ class Hierarchy:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
+            ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             goal_stack = [ep_goal]
 
             # Start LRGP
@@ -183,7 +185,7 @@ class Hierarchy:
                     new_goal = self.high.select_action_test(state, goal, add_noise)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(new_goal, 0):
+                    if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), 0):
                         add_noise = True
                     else:
                         goal_stack.append(new_goal)
@@ -279,6 +281,7 @@ class Hierarchy:
 
             # Generate env initialization
             state, ep_goal = self.env.reset()
+            ep_goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             self.env.render()
             goal_stack = [ep_goal]
 
@@ -300,7 +303,7 @@ class Hierarchy:
                     new_goal = self.high.select_action_test(state, goal, add_noise)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(new_goal, 0):
+                    if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), 0):
                         add_noise = True
                         self.env.add_goal(new_goal)
                         self.env.render()
@@ -387,7 +390,7 @@ class Hierarchy:
                np.array(log_low_success).mean()
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
-        return np.array_equal(self.env.state_goal_mapper(state), goal)
+        return np.array_equal(state, goal)
 
     def save(self, path: str):
         if not os.path.exists(path):

@@ -10,13 +10,14 @@ class HighPolicy:
         self.env = env
 
         state_shape = env.observation_space.shape[0]
-        goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0]
+        # goal_shape = env.state_goal_mapper(env.observation_space.sample()).shape[0]
+        goal_shape = state_shape
         # High agent proposes goals --> action space === goal space
         action_shape = goal_shape
 
         # Compute action bounds to convert SAC's action in the correct range
-        action_low = env.state_goal_mapper(env.observation_space.low)
-        action_high = env.state_goal_mapper(env.observation_space.high)
+        action_low = env.observation_space.low
+        action_high = env.observation_space.high
         action_high_corrected = 1 + action_high  # To adapt discrete env into SAC (continuous actions)
 
         action_bound = (action_high_corrected - action_low) / 2
@@ -78,10 +79,10 @@ class HighPolicy:
                     # Used as intermediate goal or proposed action
                     hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
                     self.replay_buffer.add(state_1,             # state
-                                           hindsight_goal_2,    # action <-> proposed goal
+                                           next_state_2,    # action <-> proposed goal
                                            -(j - i + 1),        # reward <-> - N runs
                                            next_state_1,        # (NOT USED) next_state
-                                           hindsight_goal_3,    # goal
+                                           next_state_3,    # goal
                                            True)                # done --> Q-value = Reward (no bootstrap / Bellman eq)
         self.episode_runs = list()
 
