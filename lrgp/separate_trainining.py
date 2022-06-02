@@ -337,8 +337,8 @@ class Sample_goal:
             next_state, reward, done, info = self.env.step(action)
             # Check if last subgoal is achieved (not episode's goal)
             achieved = self._goal_achived(next_state, goal)
-            self.low.add_transition(
-                (state, action, int(achieved) - 1, next_state, goal, achieved))
+            # self.low.add_transition(
+            #     (state, action, int(achieved) - 1, next_state, goal, achieved))
 
             state = next_state
 
