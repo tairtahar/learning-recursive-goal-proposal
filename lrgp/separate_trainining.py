@@ -20,7 +20,7 @@ class Sample_goal:
         self.back_forth = 5
 
     def train(self, n_samples_low: int, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
-              update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
+              update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable,  **kwargs):  # range_low_h: np.ndarray,
         start_time = time.time()
         self.back_forth = kwargs['back_forth_low']
         self.radius = kwargs['radius_h']
@@ -29,7 +29,7 @@ class Sample_goal:
 
             # Noise and epsilon for this episode
             epsilon = epsilon_f(episode)
-
+   #         low_h = range_low_h[episode]
             # Init episode variables
             subgoals_proposed = 0
             max_env_steps = False
@@ -269,7 +269,7 @@ class Sample_goal:
     def low_policy_learning(self, n_samples: int, low_h: int, update_each: int, n_updates: int, batch_size: int,
                             epsilon_f: Callable):
         for sample in range(n_samples):
-            epsilon = epsilon_f(sample)/5.07
+            epsilon = epsilon_f(sample) /5.07
             state, ep_goal = self.env.reset()
             goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
             # goal = ep_goal
