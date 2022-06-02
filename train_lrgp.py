@@ -32,6 +32,7 @@ parser.add_argument('--n_samples_low', type=int, default=0, help='Initial traini
 parser.add_argument('--max_env', type=int, default=120, help='maximum number of steps for episode')
 parser.add_argument('--radius_h', type=int, default=6, help='radius for high policy learning suggestions')
 parser.add_argument('--back_forth_low', type=int, default=5, help='repetitions back and forward in low training')
+parser.add_argument('--num_targets', type=int, default=5, help='number of targets in initial vicinity learning')
 
 args = parser.parse_args()
 args = vars(args)

@@ -25,7 +25,8 @@ class Sample_goal:
         self.back_forth = kwargs['back_forth_low']
         self.radius = kwargs['radius_h']
         # self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
-        self.vicinity_collection(n_samples_low, epsilon_f)
+        self.vicinity_collection(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
+        self.low.run_steps = []
 
         for episode in range(n_episodes):
 
@@ -78,9 +79,9 @@ class Sample_goal:
                     low_steps = 0
 
                     # Add state to compute reachable pairs
-                    # self.low.add_run_step(state)
+                    self.low.add_run_step(state)
                     # Add current position as allowed goal to overcome the incomplete goal space problem
-                    # self.low.add_allowed_goal(state)
+                    self.low.add_allowed_goal(state)
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
@@ -88,13 +89,13 @@ class Sample_goal:
                         next_state, reward, done, info = self.env.step(action)
                         # Check if last subgoal is achieved (not episode's goal)
                         achieved = self._goal_achived(next_state, goal)
-                        # self.low.add_transition((state, action, int(achieved) - 1, next_state, goal, achieved))
+                        self.low.add_transition((state, action, int(achieved) - 1, next_state, goal, achieved))
 
                         state = next_state
 
                         # Add info to reachable and allowed buffers
-                        # self.low.add_run_step(state)
-                        # self.low.add_allowed_goal(state)
+                        self.low.add_run_step(state)
+                        self.low.add_allowed_goal(state)
 
                         # Don't count turns
                         if action == SimpleMiniGridEnv.Actions.forward:
@@ -134,13 +135,15 @@ class Sample_goal:
                         break
 
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
-            self.high.on_episode_end(solution, self.radius)
-            # self.low.on_episode_end()
+            self.high.solution_to_vicinity(solution, self.radius)
+            self.high.on_episode_end()
+
+            self.low.on_episode_end()
 
             # Update networks / policies
             if (episode + 1) % update_each == 0:
                 self.high.update(n_updates, batch_size)
-                # self.low.update(n_updates, batch_size)
+                self.low.update(n_updates, batch_size)
 
             # Test to validate training
             if (episode + 1) % test_each == 0:
@@ -269,6 +272,28 @@ class Sample_goal:
                np.array(log_steps_a).mean(), np.array(log_max_proposals).mean(), np.array(log_success).mean(), \
                np.array(log_low_success).mean()
 
+    def vicinity_collection(self, n_samples: int, low_h: int, update_each: int, n_updates: int, batch_size: int,
+                            epsilon_f: Callable):  # This is the same as low_policy_learning but without learning.
+        # Only collecting goal_list
+        for sample in range(n_samples):
+            epsilon = epsilon_f(sample)
+            state, ep_goal = self.env.reset()
+            goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
+            solution = [tuple(state)]
+            achieved = self._goal_achived(state, goal)
+            if not achieved:
+                for run_iter in range(self.back_forth):
+                    last_state = self.run_setps(state, goal, low_h, epsilon)
+                    # self.low.create_reachable_transitions(goal, achieved)
+                    goal = state
+                    state = last_state
+                    solution.append(tuple(last_state))
+                    # self.low.on_episode_end()
+            self.high.solution_to_vicinity(solution, self.radius)
+
+            if (sample + 1) % 50 == 0:
+                print("low sampling target " + str(sample + 1))
+
     def low_policy_learning(self, n_samples: int, low_h: int, update_each: int, n_updates: int, batch_size: int,
                             epsilon_f: Callable):
         for sample in range(n_samples):
@@ -280,14 +305,14 @@ class Sample_goal:
             achieved = self._goal_achived(state, goal)
             if not achieved:
                 for run_iter in range(self.back_forth):
-                    last_state, max_env_steps = self.run_setps(state, goal, low_h, epsilon)
+                    last_state = self.run_setps(state, goal, low_h, epsilon)
                     self.low.create_reachable_transitions(goal, achieved)
                     goal = state
                     state = last_state
                     solution.append(tuple(last_state))
                     self.low.on_episode_end()
 
-            self.solution_to_vicinity(solution)
+            self.high.solution_to_vicinity(solution, self.radius)
 
             # Update networks / policies
             if (sample + 1) % update_each == 0:
@@ -297,17 +322,6 @@ class Sample_goal:
             if (sample + 1) % 50 == 0:
                 print("low sampling target " + str(sample + 1))
 
-    def solution_to_vicinity(self, solution):
-        solution.reverse()
-        for i, element in enumerate(solution):
-            goal_1dim = self.env.location_to_number(element)
-            for j in range(1, len(solution) - i):
-                if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
-                    self.high.alg.goal_list[goal_1dim].add(solution[i + j])
-                    curr_state_1dim = self.env.location_to_number(solution[i + j])
-                    self.high.alg.goal_list[curr_state_1dim].add(element)
-                if j >= self.radius:
-                    break
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
         return np.array_equal(state, goal)
@@ -339,11 +353,11 @@ class Sample_goal:
             low_steps += 1
 
             # Max env steps
-            if done and len(info) > 0:
-                max_env_steps = True
-                return state, max_env_steps
+            # if done and len(info) > 0:
+            #     max_env_steps = True
+                # return state, max_env_steps
 
-        return state, max_env_steps
+        return state
 
     def test(self, n_episodes: int, low_h: int, high_h: int, render: bool = False, **kwargs) -> Tuple[np.ndarray, ...]:
         if render:
