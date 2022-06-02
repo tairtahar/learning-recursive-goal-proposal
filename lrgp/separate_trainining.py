@@ -279,7 +279,7 @@ class Sample_goal:
                 achieved = self._goal_achived(state, goal)
                 if not achieved:
                     for run_iter in range(self.back_forth):
-                        last_state = self.run_setps(state, goal, low_h*2, epsilon)
+                        last_state = self.run_setps(state, goal, low_h*2, epsilon)  # TODO: set low_h to the best
                         self.low.create_reachable_transitions(goal, achieved)
                         goal = state
                         state = last_state
