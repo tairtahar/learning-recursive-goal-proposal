@@ -24,7 +24,9 @@ class Sample_goal:
         start_time = time.time()
         self.back_forth = kwargs['back_forth_low']
         self.radius = kwargs['radius_h']
-        self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
+        # self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
+        self.vicinity_collection(n_samples_low, epsilon_f)
+
         for episode in range(n_episodes):
 
             # Noise and epsilon for this episode
