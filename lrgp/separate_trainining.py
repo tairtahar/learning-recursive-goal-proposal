@@ -58,7 +58,7 @@ class Sample_goal:
 
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
-                    if not self.low.is_allowed(new_goal, epsilon) or \
+                    if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), epsilon) or \
                             np.array_equal(new_goal, goal) or \
                             np.array_equal(new_goal, state):
                         self.high.add_penalization((state, new_goal, -high_h, state, goal, True))  # ns not used
@@ -78,7 +78,7 @@ class Sample_goal:
                     # Add state to compute reachable pairs
                     self.low.add_run_step(state)
                     # Add current position as allowed goal to overcome the incomplete goal space problem
-                    self.low.add_allowed_goal(state)
+                    self.low.add_allowed_goal(self.env.state_goal_mapper(state))
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
@@ -92,7 +92,7 @@ class Sample_goal:
 
                         # Add info to reachable and allowed buffers
                         self.low.add_run_step(state)
-                        self.low.add_allowed_goal(state)
+                        self.low.add_allowed_goal(self.env.state_goal_mapper(state))
 
                         # Don't count turns
                         if action == SimpleMiniGridEnv.Actions.forward:
@@ -132,7 +132,8 @@ class Sample_goal:
                         break
 
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
-            self.high.on_episode_end(solution, self.radius)
+            self.high.solution_to_vicinity(solution, self.radius)
+            self.high.on_episode_end()
             self.low.on_episode_end()
 
             # Update networks / policies
@@ -189,7 +190,7 @@ class Sample_goal:
                     new_goal = self.high.select_action_test(state, goal, add_noise)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(new_goal, 0):
+                    if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), 0):
                         add_noise = True
                     else:
                         goal_stack.append(new_goal)
@@ -313,7 +314,7 @@ class Sample_goal:
         low_steps = low_fwd = 0
         self.low.add_run_step(state)
         max_env_steps = False
-        self.low.add_allowed_goal(state)
+        self.low.add_allowed_goal(self.env.state_goal_mapper(state))
         achieved = self._goal_achived(state, goal)
         while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
             action = self.low.select_action(state, goal, epsilon)
@@ -327,7 +328,7 @@ class Sample_goal:
 
             # Add info to reachable and allowed buffers
             self.low.add_run_step(state)
-            self.low.add_allowed_goal(state)
+            self.low.add_allowed_goal(self.env.state_goal_mapper(state))
 
             # Don't count turns
             if action == SimpleMiniGridEnv.Actions.forward:
@@ -389,7 +390,7 @@ class Sample_goal:
                     new_goal = self.high.select_action_test(state, goal, add_noise)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(new_goal, 0):
+                    if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), 0):
                         add_noise = True
                         self.env.add_goal(self.env.state_goal_mapper(new_goal))
                         self.env.render()
