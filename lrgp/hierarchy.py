@@ -1,6 +1,6 @@
 import os
 import numpy as np
-
+import time
 from gym_simple_minigrid.minigrid import SimpleMiniGridEnv
 from typing import Callable, Tuple
 
@@ -18,7 +18,7 @@ class Hierarchy:
 
     def train(self, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable, **kwargs):
-
+        start_time = time.time()
         for episode in range(n_episodes):
             # Noise and epsilon for this episode
             epsilon = epsilon_f(episode)
@@ -135,9 +135,11 @@ class Hierarchy:
             if (episode + 1) % test_each == 0:
                 subg, subg_a, steps, steps_a, max_subg, sr, low_sr = self._test(n_episodes_test, low_h, high_h)
                 print(f"Episode {episode + 1:5d}: {100 * sr:5.1f}% Achieved")
+                curr_time = (time.time() - start_time) / 60
                 self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr,
                                   len(self.high.replay_buffer), len(self.low.replay_buffer),
-                                  len(self.low.reachable_buffer), len(self.low.allowed_buffer)])
+                                  len(self.low.reachable_buffer), len(self.low.allowed_buffer), curr_time])
+                self.save(os.path.join('logs', kwargs['job_name']))
 
     def test(self, n_episodes: int, low_h: int, high_h: int, render: bool = False, **kwargs) -> Tuple[np.ndarray, ...]:
         if render:
