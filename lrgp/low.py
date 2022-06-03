@@ -56,9 +56,11 @@ class LowPolicy:
     def add_allowed_goal(self, goal: np.ndarray):
         self.allowed_buffer.add(tuple(goal))
 
-    def create_reachable_transitions(self, goal: np.ndarray, achieved: bool):
+    def create_reachable_transitions(self, goal: np.ndarray, achieved: bool, low_h: int):
         # Compute reachable transitions
         for i, s_1 in enumerate(self.run_steps):
+            # lim = np.min([i+len(self.run_steps)-2, len(self.run_steps)])
+            # for s_2 in self.run_steps[i + 1:lim]:
             for s_2 in self.run_steps[i + 1:]:
                 # In this tabular implementation we only store POSITIVE transitions encoding the state-goal pair
                 self.reachable_buffer.add(tuple(s_1) + tuple(s_2))

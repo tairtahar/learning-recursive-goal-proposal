@@ -23,7 +23,7 @@ class Sample_goal:
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable,# range_low_h: np.ndarray,
               **kwargs):  #
         start_time = time.time()
-        range_low_h = np.linspace(kwargs['low_h_min'], kwargs['low_h_max'], n_samples_low).astype(int)
+        # range_low_h = np.linspace(kwargs['low_h_min'], kwargs['low_h_max'], n_samples_low).astype(int)
         self.back_forth = kwargs['back_forth_low']
         self.radius = kwargs['radius_h']
         self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
@@ -61,9 +61,7 @@ class Sample_goal:
 
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
-                    if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), epsilon) or \
-                            np.array_equal(new_goal, goal) or \
-                            np.array_equal(new_goal, state):
+                    if np.array_equal(new_goal, goal) or np.array_equal(new_goal, state):
                         self.high.add_penalization((state, new_goal, -high_h, state, goal, True))  # ns not used
                     else:
                         goal_stack.append(new_goal)
@@ -81,7 +79,6 @@ class Sample_goal:
                     # Add state to compute reachable pairs
                     self.low.add_run_step(state)
                     # Add current position as allowed goal to overcome the incomplete goal space problem
-                    self.low.add_allowed_goal(self.env.state_goal_mapper(state))
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
@@ -95,7 +92,6 @@ class Sample_goal:
 
                         # Add info to reachable and allowed buffers
                         self.low.add_run_step(state)
-                        self.low.add_allowed_goal(self.env.state_goal_mapper(state))
 
                         # Don't count turns
                         if action == SimpleMiniGridEnv.Actions.forward:
@@ -113,7 +109,7 @@ class Sample_goal:
                     solution.append(tuple(state))
 
                     # Create reachable transitions from run info
-                    self.low.create_reachable_transitions(goal, achieved)
+                    self.low.create_reachable_transitions(goal, achieved, low_h)
 
                     # Add run info for high agent to create transitions
                     if not np.array_equal(state_high, next_state_high):
@@ -190,14 +186,14 @@ class Sample_goal:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new subgoal
-                    new_goal = self.high.select_action_test(state, goal, add_noise)
+                    new_goal = self.high.select_action_test(state, goal) #, add_noise)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), 0):
-                        add_noise = True
-                    else:
-                        goal_stack.append(new_goal)
-                        add_noise = False
+                    # if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), 0):
+                    #     add_noise = True
+                    # else:
+                    goal_stack.append(new_goal)
+                    #add_noise = False
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
@@ -270,11 +266,9 @@ class Sample_goal:
                np.array(log_steps_a).mean(), np.array(log_max_proposals).mean(), np.array(log_success).mean(), \
                np.array(log_low_success).mean()
 
-    def low_policy_learning(self, n_samples: int, range_low_h: int, update_each: int, n_updates: int, batch_size: int,
+    def low_policy_learning(self, n_samples: int, low_h: int, update_each: int, n_updates: int, batch_size: int,
                             epsilon_f: Callable):
-
         for sample in range(n_samples):
-            low_h = range_low_h[sample]
             epsilon = epsilon_f(sample)
             state, ep_goal = self.env.reset()
             goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
@@ -283,14 +277,14 @@ class Sample_goal:
             achieved = self._goal_achived(state, goal)
             if not achieved:
                 for run_iter in range(self.back_forth):
-                    last_state, max_env_steps = self.run_setps(state, goal, low_h, epsilon)
-                    self.low.create_reachable_transitions(goal, achieved)
+                    last_state, achieved = self.run_steps(state, goal, low_h, epsilon)
+                    self.low.create_reachable_transitions(goal, achieved, low_h)
                     goal = state
                     state = last_state
                     solution.append(tuple(last_state))
                     self.low.on_episode_end()
 
-            self.solution_to_vicinity(solution)
+            self.high.solution_to_vicinity(solution, self.radius)
 
             # Update networks / policies
             if (sample + 1) % update_each == 0:
@@ -300,26 +294,13 @@ class Sample_goal:
             if (sample + 1) % 50 == 0:
                 print("low sampling target " + str(sample + 1))
 
-    def solution_to_vicinity(self, solution):
-        solution.reverse()
-        for i, element in enumerate(solution):
-            goal_1dim = self.env.location_to_number(element)
-            for j in range(1, len(solution) - i):
-                if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
-                    self.high.alg.goal_list[goal_1dim].add(solution[i + j])
-                    # curr_state_1dim = self.env.location_to_number(solution[i + j])
-                    # self.high.alg.goal_list[curr_state_1dim].add(element)
-                if j >= self.radius:
-                    break
-
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
         return np.array_equal(state, goal)
 
-    def run_setps(self, state: np.ndarray, goal: np.ndarray, low_h: int, epsilon: float):
+    def run_steps(self, state: np.ndarray, goal: np.ndarray, low_h: int, epsilon: float):
         low_steps = low_fwd = 0
         self.low.add_run_step(state)
         max_env_steps = False
-        self.low.add_allowed_goal(self.env.state_goal_mapper(state))
         achieved = self._goal_achived(state, goal)
         while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
             action = self.low.select_action(state, goal, epsilon)
@@ -333,7 +314,6 @@ class Sample_goal:
 
             # Add info to reachable and allowed buffers
             self.low.add_run_step(state)
-            self.low.add_allowed_goal(self.env.state_goal_mapper(state))
 
             # Don't count turns
             if action == SimpleMiniGridEnv.Actions.forward:
@@ -342,11 +322,11 @@ class Sample_goal:
             low_steps += 1
 
             # Max env steps
-            if done and len(info) > 0:
-                max_env_steps = True
-                return state, max_env_steps
+            # if done and len(info) > 0:
+            #     max_env_steps = True
+            #     return state, achieved
 
-        return state, max_env_steps
+        return state, achieved
 
     def test(self, n_episodes: int, low_h: int, high_h: int, render: bool = False, **kwargs) -> Tuple[np.ndarray, ...]:
         if render:
@@ -392,20 +372,20 @@ class Sample_goal:
                         break  # Too many proposals. Break and move to another episode
 
                     # Ask for a new subgoal
-                    new_goal = self.high.select_action_test(state, goal, add_noise)
+                    new_goal = self.high.select_action_test(state, goal) #, add_noise)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), 0):
-                        add_noise = True
-                        self.env.add_goal(self.env.state_goal_mapper(new_goal))
-                        self.env.render()
-                        self.env.remove_goal()
-                        self.env.render()
-                    else:
-                        goal_stack.append(new_goal)
-                        self.env.add_goal(self.env.state_goal_mapper(new_goal))
-                        self.env.render()
-                        add_noise = False
+                    # if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), 0):
+                    #     add_noise = True
+                    #     self.env.add_goal(self.env.state_goal_mapper(new_goal))
+                    #     self.env.render()
+                    #     self.env.remove_goal()
+                    #     self.env.render()
+                    # else:
+                    goal_stack.append(new_goal)
+                    self.env.add_goal(self.env.state_goal_mapper(new_goal))
+                    self.env.render()
+                    # add_noise = False
 
                 else:
                     # Reachable. Apply a run of max low_h low actions
