@@ -30,11 +30,9 @@ parser.add_argument('--n_samples_low', type=int, default=0, help='Initial traini
 parser.add_argument('--max_env', type=int, default=120, help='maximum number of steps for episode')
 parser.add_argument('--radius_h', type=int, default=6, help='radius for high policy learning suggestions')
 parser.add_argument('--back_forth_low', type=int, default=5, help='repetitions back and forward in low training')
-parser.add_argument('--low_h_max', type=int, default=8,
-                    help='Low horizon: maximum number of steps the low agent can do '
+parser.add_argument('--low_h_max', type=int, default=8, help='Low horizon min: minimum number of steps the low agent can do '
                          'every time it is used')
-parser.add_argument('--low_h_min', type=int, default=8,
-                    help='Low horizon: maximum number of steps the low agent can do '
+parser.add_argument('--low_h_min', type=int, default=8, help='Low horizon max: maximum number of steps the low agent can do '
                          'every time it is used')
 
 args = parser.parse_args()
@@ -53,12 +51,12 @@ torch.manual_seed(args['seed'])
 
 # Create epsilon exploration curve
 epsilon_f = lambda i: args['epsilon_min'] + (args['epsilon_max'] - args['epsilon_min']) * args['epsilon_decay'] ** i
-#range_low_h = np.linspace(args['low_h_min'], args['low_h_max'], args['n_episodes']).astype(int)
+
 # Train
 print(f"Running {args['job_name']}...")
 learner = Sample_goal(env)
-# learner.train(**args, epsilon_f=epsilon_f, range_low_h=range_low_h)
 learner.train(**args, epsilon_f=epsilon_f)
+# learner.train(**args, epsilon_f=epsilon_f)
 
 # Save checkpoints and logs
 learner.save(os.path.join('logs', args['job_name']))
