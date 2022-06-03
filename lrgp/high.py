@@ -74,10 +74,10 @@ class HighPolicy:
         for i, (state_1, _, next_state_1) in enumerate(self.episode_runs):
             for j, (_, _, next_state_3) in enumerate(self.episode_runs[i + 1:], i + 1):
                 # Used as final goal
-                hindsight_goal_3 = self.env.state_goal_mapper(next_state_3)
+                # hindsight_goal_3 = self.env.state_goal_mapper(next_state_3)
                 for k, (_, _, next_state_2) in enumerate(self.episode_runs[i:j], i):
                     # Used as intermediate goal or proposed action
-                    hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
+                    # hindsight_goal_2 = self.env.state_goal_mapper(next_state_2)
                     self.replay_buffer.add(state_1,             # state
                                            next_state_2,    # action <-> proposed goal
                                            -(j - i + 1),        # reward <-> - N runs

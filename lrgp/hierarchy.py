@@ -70,7 +70,7 @@ class Hierarchy:
                     # Add state to compute reachable pairs
                     self.low.add_run_step(state)
                     # Add current position as allowed goal to overcome the incomplete goal space problem
-                    self.low.add_allowed_goal(self.env.state_goal_mapper(state))
+                    self.low.add_allowed_goal(state)
 
                     # Apply steps
                     while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
@@ -84,7 +84,7 @@ class Hierarchy:
 
                         # Add info to reachable and allowed buffers
                         self.low.add_run_step(state)
-                        self.low.add_allowed_goal(self.env.state_goal_mapper(state))
+                        self.low.add_allowed_goal(state)
 
                         # Don't count turns
                         if action == SimpleMiniGridEnv.Actions.forward:
@@ -187,7 +187,7 @@ class Hierarchy:
                     new_goal = self.high.select_action_test(state, goal, add_noise)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), 0):
+                    if not self.low.is_allowed(new_goal, 0):
                         add_noise = True
                     else:
                         goal_stack.append(new_goal)
@@ -305,7 +305,7 @@ class Hierarchy:
                     new_goal = self.high.select_action_test(state, goal, add_noise)
 
                     # If not allowed, add noise to generate an adjacent goal
-                    if not self.low.is_allowed(self.env.state_goal_mapper(new_goal), 0):
+                    if not self.low.is_allowed(new_goal, 0):
                         add_noise = True
                         self.env.add_goal(new_goal)
                         self.env.render()

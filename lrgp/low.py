@@ -62,7 +62,7 @@ class LowPolicy:
         for i, s_1 in enumerate(self.run_steps):
             for s_2 in self.run_steps[i + 1:]:
                 # In this tabular implementation we only store POSITIVE transitions encoding the state-goal pair
-                self.reachable_buffer.add(tuple(s_1) + tuple(self.env.state_goal_mapper(s_2)))
+                self.reachable_buffer.add(tuple(s_1) + tuple(s_2))
 
         if not achieved:
             # In other implementations I should know if final goal was achieved to compute a NEGATIVE transition
