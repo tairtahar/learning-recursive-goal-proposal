@@ -113,7 +113,7 @@ class Sample_goal:
                     solution.append(tuple(state))
 
                     # Create reachable transitions from run info
-                    # self.low.create_reachable_transitions(goal, achieved)
+                    self.low.create_reachable_transitions(goal, achieved)
 
                     # Add run info for high agent to create transitions
                     if not np.array_equal(state_high, next_state_high):
@@ -330,7 +330,7 @@ class Sample_goal:
         low_steps = low_fwd = 0
         self.low.add_run_step(state)
         max_env_steps = False
-        self.low.add_allowed_goal(state)
+        #self.low.add_allowed_goal(state)
         achieved = self._goal_achived(state, goal)
         while low_fwd < low_h and low_steps < 2 * low_h and not achieved:
             action = self.low.select_action(state, goal, epsilon)
@@ -344,7 +344,7 @@ class Sample_goal:
 
             # Add info to reachable and allowed buffers
             self.low.add_run_step(state)
-            self.low.add_allowed_goal(state)
+            #self.low.add_allowed_goal(state)
 
             # Don't count turns
             if action == SimpleMiniGridEnv.Actions.forward:
