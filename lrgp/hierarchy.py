@@ -303,17 +303,17 @@ class Hierarchy:
 
                     # Ask for a new subgoal
                     new_goal = self.high.select_action_test(state, goal, add_noise)
-
+                    new_goal_loc = self.env.state_goal_mapper(new_goal)
                     # If not allowed, add noise to generate an adjacent goal
                     if not self.low.is_allowed(new_goal, 0):
                         add_noise = True
-                        self.env.add_goal(new_goal)
+                        self.env.add_goal(new_goal_loc)
                         self.env.render()
                         self.env.remove_goal()
                         self.env.render()
                     else:
                         goal_stack.append(new_goal)
-                        self.env.add_goal(new_goal)
+                        self.env.add_goal(new_goal_loc)
                         self.env.render()
                         add_noise = False
 
