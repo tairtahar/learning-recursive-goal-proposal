@@ -9,7 +9,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class HighPolicy:
-    def __init__(self, env: SimpleMiniGridEnv, gamma: float = 1., tau: float = 0.005, br_size: int = 1e6):
+    def __init__(self, env: SimpleMiniGridEnv, gamma: float = 1., tau: float = 0.005, br_size: int = 1e6,
+                 lr_critic: float = 3e-4):
         self.env = env
 
         state_shape = env.observation_space.shape[0]
@@ -30,7 +31,8 @@ class HighPolicy:
         # action_offset = np.concatenate((action_offset, np.array([2])))
 
         # Init SAC algorithm, base learner for high agent
-        self.alg = SACStateGoal(state_shape, action_shape, goal_shape, action_bound, action_offset, gamma, tau)
+        self.alg = SACStateGoal(state_shape, action_shape, goal_shape, action_bound, action_offset, gamma, tau,
+                                critic_lr=lr_critic)
 
         self.clip_low = np.concatenate((action_low, np.array([0])))
         self.clip_high = np.concatenate((action_high, np.array([3])))

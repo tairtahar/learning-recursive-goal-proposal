@@ -10,10 +10,10 @@ import time
 
 
 class Sample_goal:
-    def __init__(self, env: SimpleMiniGridEnv):
+    def __init__(self, env: SimpleMiniGridEnv, lr_critic=3e-4):
         self.env = env
         self.low = LowPolicy(env)
-        self.high = HighPolicy(env)
+        self.high = HighPolicy(env, lr_critic=lr_critic)
         self.logs = list()
         self.success_flag = False
         self.radius = 6
