@@ -26,7 +26,7 @@ class Sample_goal:
         self.back_forth = kwargs['back_forth_low']
         self.radius = kwargs['radius_h']
         acquisition_time = self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f,
-                                                    kwargs['symmetry'])
+                                                    kwargs['symmetry'], kwargs['n_targets'])
         print("acquisition time lasted " + str(acquisition_time/60))
         # range_low_h = np.linspace(kwargs['low_h_min'], kwargs['low_h_max'], n_episodes).astype(int)
         start_time = time.time()
@@ -269,25 +269,26 @@ class Sample_goal:
                np.array(log_low_success).mean()
 
     def low_policy_learning(self, n_samples: int, low_h: int, update_each: int, n_updates: int, batch_size: int,
-                            epsilon_f: Callable, symmetry):
+                            epsilon_f: Callable, symmetry, n_targets):
         low_train_start = time.time()
         for sample in range(n_samples):
             epsilon = epsilon_f(sample)
             state, ep_goal = self.env.reset()
-            goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
-            # goal = ep_goal
-            solution = [tuple(state)]
-            achieved = self._goal_achived(state, goal)
-            if not achieved:
-                for run_iter in range(self.back_forth):
-                    last_state, achieved = self.run_steps(state, goal, low_h, epsilon)
-                    self.low.create_reachable_transitions(goal, achieved, low_h)
-                    goal = state
-                    state = last_state
-                    solution.append(tuple(last_state))
-                    self.low.on_episode_end()
+            for target in range(n_targets):
+                goal = np.concatenate((ep_goal, np.random.randint(0, 3, 1)))
+                # goal = ep_goal
+                solution = [tuple(state)]
+                achieved = self._goal_achived(state, goal)
+                if not achieved:
+                    for run_iter in range(self.back_forth):
+                        last_state, achieved = self.run_steps(state, goal, low_h, epsilon)
+                        self.low.create_reachable_transitions(goal, achieved, low_h)
+                        goal = state
+                        state = last_state
+                        solution.append(tuple(last_state))
+                        self.low.on_episode_end()
 
-            self.high.solution_to_vicinity(solution, self.radius,symmetry)
+                self.high.solution_to_vicinity(solution, self.radius,symmetry)
 
             # Update networks / policies
             if (sample + 1) % update_each == 0:
