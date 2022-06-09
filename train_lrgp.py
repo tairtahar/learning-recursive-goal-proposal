@@ -5,6 +5,7 @@ import gym_simple_minigrid  # just to register envs
 import numpy as np
 import torch
 from lrgp.separate_trainining import Sample_goal
+import sys
 
 parser = argparse.ArgumentParser()
 
@@ -58,6 +59,8 @@ epsilon_f = lambda i: args['epsilon_min'] + (args['epsilon_max'] - args['epsilon
 
 # Train
 print(f"Running {args['job_name']}...")
+print(sys.argv[1:])
+
 learner = Sample_goal(env)
 learner.train(**args, epsilon_f=epsilon_f)
 # learner.train(**args, epsilon_f=epsilon_f)
