@@ -25,7 +25,8 @@ class Sample_goal:
         # range_low_h = np.linspace(kwargs['low_h_min'], kwargs['low_h_max'], n_samples_low).astype(int)
         self.back_forth = kwargs['back_forth_low']
         self.radius = kwargs['radius_h']
-        acquisition_time = self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
+        acquisition_time = self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f,
+                                                    kwargs['symmetry'])
         print("acquisition time lasted " + str(acquisition_time/60))
         # range_low_h = np.linspace(kwargs['low_h_min'], kwargs['low_h_max'], n_episodes).astype(int)
         start_time = time.time()
@@ -132,7 +133,7 @@ class Sample_goal:
                         break
 
             # Perform end-of-episode actions (Compute transitions for high level and HER for low one)
-            self.high.solution_to_vicinity(solution, self.radius)
+            self.high.solution_to_vicinity(solution, self.radius, kwargs['symmetry'])
             self.high.on_episode_end()
             self.low.on_episode_end()
 
@@ -268,7 +269,7 @@ class Sample_goal:
                np.array(log_low_success).mean()
 
     def low_policy_learning(self, n_samples: int, low_h: int, update_each: int, n_updates: int, batch_size: int,
-                            epsilon_f: Callable):
+                            epsilon_f: Callable, symmetry):
         low_train_start = time.time()
         for sample in range(n_samples):
             epsilon = epsilon_f(sample)
@@ -286,7 +287,7 @@ class Sample_goal:
                     solution.append(tuple(last_state))
                     self.low.on_episode_end()
 
-            self.high.solution_to_vicinity(solution, self.radius)
+            self.high.solution_to_vicinity(solution, self.radius,symmetry)
 
             # Update networks / policies
             if (sample + 1) % update_each == 0:

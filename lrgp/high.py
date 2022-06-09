@@ -108,15 +108,16 @@ class HighPolicy:
     def add_penalization(self, transition: tuple):
         self.replay_buffer.add(*transition)
 
-    def solution_to_vicinity(self, solution, radius):
+    def solution_to_vicinity(self, solution, radius, symmetry):
         solution.reverse()
         for i, element in enumerate(solution):
             goal_1dim = self.env.location_to_number(element)
             for j in range(1, len(solution) - i):
                 if self.env.state_goal_mapper(element) != self.env.state_goal_mapper(solution[i + j]):
                     self.alg.goal_list[goal_1dim].add(solution[i + j])
-                    # curr_state_1dim = self.env.location_to_number(solution[i + j])
-                    # self.alg.goal_list[curr_state_1dim].add(element)
+                    if symmetry:  # store also symmetric relation
+                        curr_state_1dim = self.env.location_to_number(solution[i + j])
+                        self.alg.goal_list[curr_state_1dim].add(element)
                 if j >= radius:
                     break
 
