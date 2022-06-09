@@ -22,12 +22,13 @@ class Sample_goal:
     def train(self, n_samples_low: int, n_episodes: int, low_h: int, high_h: int, test_each: int, n_episodes_test: int,
               update_each: int, n_updates: int, batch_size: int, epsilon_f: Callable,# range_low_h: np.ndarray,
               **kwargs):  #
-        start_time = time.time()
         # range_low_h = np.linspace(kwargs['low_h_min'], kwargs['low_h_max'], n_samples_low).astype(int)
         self.back_forth = kwargs['back_forth_low']
         self.radius = kwargs['radius_h']
-        self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
+        acquisition_time = self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f)
+        print("acquisition time lasted " + str(acquisition_time/60))
         # range_low_h = np.linspace(kwargs['low_h_min'], kwargs['low_h_max'], n_episodes).astype(int)
+        start_time = time.time()
         for episode in range(n_episodes):
 
             # Noise and epsilon for this episode
@@ -268,6 +269,7 @@ class Sample_goal:
 
     def low_policy_learning(self, n_samples: int, low_h: int, update_each: int, n_updates: int, batch_size: int,
                             epsilon_f: Callable):
+        low_train_start = time.time()
         for sample in range(n_samples):
             epsilon = epsilon_f(sample)
             state, ep_goal = self.env.reset()
@@ -293,6 +295,8 @@ class Sample_goal:
 
             if (sample + 1) % 50 == 0:
                 print("low sampling target " + str(sample + 1))
+        low_train_end = time.time()
+        return low_train_start-low_train_end
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
         return np.array_equal(state, goal)
