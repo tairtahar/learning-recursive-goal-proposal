@@ -33,6 +33,7 @@ parser.add_argument('--back_forth_low', type=int, default=5, help='repetitions b
 parser.add_argument('--lr_critic', type=int, default=3e-4, help='learning rate of SAC V-net')
 parser.add_argument('--symmetry', type=bool, default=False, help='Vicinity acquisition with symmetry of not')
 parser.add_argument('--n_targets', type=int, default=1, help='Number of goals in vicinity acquisition')
+parser.add_argument('--flatten', type=bool, default=False, help='Vicinity acquisition round(default) or flatten')
 # parser.add_argument('--low_h_max', type=int, default=8, help='Low horizon min: minimum number of steps the low agent can do '
 #                          'every time it is used')
 # parser.add_argument('--low_h_min', type=int, default=8, help='Low horizon max: maximum number of steps the low agent can do '
