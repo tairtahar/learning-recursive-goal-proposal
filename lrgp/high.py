@@ -61,8 +61,9 @@ class HighPolicy:
         if bool(list_possible_actions):
             state_list = [state for _ in range(len(list_possible_actions))]
             goal_list = [goal for _ in range(len(list_possible_actions))]
-            q_values = self.calc_v_vals(state_list, list_possible_actions) + \
-                       self.calc_v_vals(list_possible_actions, goal_list)
+            # q_values = self.calc_v_vals(state_list, list_possible_actions) + \
+            #            self.calc_v_vals(list_possible_actions, goal_list)
+            q_values = self.calc_q_vals(state_list, list_possible_actions, goal_list)
             max_idx = np.argmax(np.array(q_values))
             return list_possible_actions[max_idx]
         else:
@@ -143,17 +144,14 @@ class HighPolicy:
                                            True)  # done --> Q-value = Reward (no bootstrap / Bellman eq)
         self.episode_runs = list()
 
-    # def calc_q_vals(self, state, action, goal):
-    #     state_tensor = torch.FloatTensor(state).to(device)
-    #     action_tensor_2dim = torch.FloatTensor(action).to(device)
-    #     action_tensor_3dim = torch.FloatTensor((*action, 0)).to(device)
-    #     goal_tensor = torch.FloatTensor(goal).to(device)
-    #     state_action = torch.cat([state_tensor, action_tensor_2dim], dim=-1)
-    #     action_goal = torch.cat([action_tensor_3dim, goal_tensor], dim=-1)
-    #     with torch.no_grad():
-    #         q_val = self.alg.value(state_action).cpu()numpy()[0] + \
-    #                 self.alg.value(action_goal).cpu().numpy()[0]
-    #     return q_val
+    def calc_q_vals(self, state, action, goal):
+        state_tensor = torch.FloatTensor(state).to(device)
+        action_tensor = torch.FloatTensor(action).to(device)
+        goal_tensor = torch.FloatTensor(goal).to(device)
+        state_goal = torch.cat([state_tensor, goal_tensor], dim=-1)
+        with torch.no_grad():
+            q_val = self.alg.q_2(state_goal, action_tensor).squeeze(-1).cpu().numpy()
+        return q_val
 
     def calc_v_vals(self, state, goal):
         state_tensor = torch.FloatTensor(state).to(device)
