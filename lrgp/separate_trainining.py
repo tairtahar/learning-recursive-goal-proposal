@@ -63,7 +63,8 @@ class Sample_goal:
 
                     # Bad proposals --> Same state, same goal or forbidden goal
                     # Penalize this proposal and avoid adding it to stack
-                    if np.array_equal(new_goal, goal) or np.array_equal(new_goal, state):
+                    if np.array_equal(self.env.state_goal_mapper(new_goal), self.env.state_goal_mapper(goal)) or\
+                            np.array_equal(self.env.state_goal_mapper(new_goal), self.env.state_goal_mapper(state)):
                         self.high.add_penalization((state, new_goal, -high_h, state, goal, True))  # ns not used
                     else:
                         goal_stack.append(new_goal)
