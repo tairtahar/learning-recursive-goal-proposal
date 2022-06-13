@@ -166,6 +166,11 @@ class HighPolicy:
             for _ in range(n_updates):
                 self.alg.update(self.replay_buffer, batch_size)
 
+    def calc_mean_goal_list_len(self):
+        len_all = [len(self.alg.goal_list[i]) for i in range(len(self.alg.goal_list)) if len(self.alg.goal_list[i]) != 0]
+        return np.mean(len_all)
+
+
     def save(self, path: str):
         self.alg.save(path, "high")
 

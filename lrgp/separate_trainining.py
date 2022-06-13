@@ -3,7 +3,7 @@ import numpy as np
 
 from gym_simple_minigrid.minigrid import SimpleMiniGridEnv
 from typing import Callable, Tuple
-
+import pickle
 from .high import HighPolicy
 from .low import LowPolicy
 import time
@@ -25,9 +25,12 @@ class Sample_goal:
         # range_low_h = np.linspace(kwargs['low_h_min'], kwargs['low_h_max'], n_samples_low).astype(int)
         self.back_forth = kwargs['back_forth_low']
         self.radius = kwargs['radius_h']
-        acquisition_time = self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f,
+        acquisition_time, len_list = self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f,
                                                     kwargs['symmetry'], kwargs['n_targets'], kwargs['flatten'])
-        print("acquisition time lasted " + str(acquisition_time/60))
+        print("acquisition time lasted " + str(acquisition_time/60) + " minutes")
+        mean_len = self.high.calc_mean_goal_list_len()
+        self.save_low(os.path.join('logs', kwargs['job_name']), len_list)
+        print("mean goal list length is " + str(mean_len))
         # range_low_h = np.linspace(kwargs['low_h_min'], kwargs['low_h_max'], n_episodes).astype(int)
         start_time = time.time()
         for episode in range(n_episodes):
@@ -150,7 +153,8 @@ class Sample_goal:
                 curr_time = (time.time() - start_time) / 60
                 self.logs.append([episode, subg, subg_a, steps, steps_a, max_subg, sr, low_sr,
                                   len(self.high.replay_buffer), len(self.low.replay_buffer),
-                                  len(self.low.reachable_buffer), len(self.low.allowed_buffer), curr_time])
+                                  len(self.low.reachable_buffer), len(self.low.allowed_buffer),
+                                  self.high.calc_mean_goal_list_len(), curr_time])
                 self.save(os.path.join('logs', kwargs['job_name']))
 
     def _test(self, n_episodes: int, low_h: int, high_h: int, **kwargs) -> Tuple[np.ndarray, ...]:
@@ -272,6 +276,7 @@ class Sample_goal:
     def low_policy_learning(self, n_samples: int, low_h: int, update_each: int, n_updates: int, batch_size: int,
                             epsilon_f: Callable, symmetry, n_targets, flatten):
         low_train_start = time.time()
+        mean_len_list = []
         for sample in range(n_samples):
             epsilon = epsilon_f(sample)
             state, ep_goal = self.env.reset()
@@ -290,7 +295,7 @@ class Sample_goal:
                         solution.append(tuple(last_state))
                         self.low.on_episode_end()
 
-                self.high.solution_to_vicinity(solution, self.radius,symmetry)
+                self.high.solution_to_vicinity(solution, self.radius, symmetry)
 
             # Update networks / policies
             if (sample + 1) % update_each == 0:
@@ -299,8 +304,11 @@ class Sample_goal:
 
             if (sample + 1) % 50 == 0:
                 print("low sampling target " + str(sample + 1))
+                mean_len_list.append(self.high.calc_mean_goal_list_len())
+
         low_train_end = time.time()
-        return low_train_start-low_train_end
+        low_time = low_train_end - low_train_start
+        return low_time, mean_len_list
 
     def _goal_achived(self, state: np.ndarray, goal: np.ndarray) -> bool:
         return np.array_equal(state, goal)
@@ -468,6 +476,13 @@ class Sample_goal:
         return np.array(log_proposals).mean(), np.array(log_proposals_a).mean(), np.array(log_steps).mean(), \
                np.array(log_steps_a).mean(), np.array(log_max_proposals).mean(), np.array(log_success).mean(), \
                np.array(log_low_success).mean()
+
+    def save_low(self, path, len_list):
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(os.path.join(path, f"len_goal_list.pickle"), 'wb') as f:
+            # for _set in self.goal_list:
+            pickle.dump(len_list, f)
 
     def save(self, path: str):
         if not os.path.exists(path):
