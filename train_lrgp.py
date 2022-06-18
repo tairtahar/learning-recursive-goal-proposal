@@ -29,7 +29,7 @@ parser.add_argument('--epsilon_min', type=float, default=0.1, help='Minimum expl
 parser.add_argument('--epsilon_decay', type=float, default=0.9994, help='Decay for epsilon')
 parser.add_argument('--n_samples_low', type=int, default=0, help='Initial training with low level')
 parser.add_argument('--max_env', type=int, default=120, help='maximum number of steps for episode')
-parser.add_argument('--radius_h', type=int, default=6, help='radius for high policy learning suggestions')
+parser.add_argument('--radius_h', type=int, default=1, help='radius for high policy learning suggestions')
 parser.add_argument('--back_forth_low', type=int, default=5, help='repetitions back and forward in low training')
 parser.add_argument('--lr_critic', type=int, default=3e-4, help='learning rate of SAC V-net')
 parser.add_argument('--symmetry', type=bool, default=False, help='Vicinity acquisition with symmetry of not')
