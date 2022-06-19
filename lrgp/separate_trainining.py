@@ -25,7 +25,7 @@ class Sample_goal:
         # range_low_h = np.linspace(kwargs['low_h_min'], kwargs['low_h_max'], n_samples_low).astype(int)
         self.back_forth = kwargs['back_forth_low']
         self.radius = kwargs['radius_h']
-        acquisition_time, len_list = self.low_policy_learning(n_samples_low, low_h, update_each, n_updates, batch_size, epsilon_f,
+        acquisition_time, len_list = self.low_policy_learning(n_samples_low, low_h, update_each, batch_size, epsilon_f,
                                                     kwargs['symmetry'], kwargs['n_targets'], kwargs['flatten'])
         print("acquisition time lasted " + str(acquisition_time/60) + " minutes")
         mean_len = self.high.calc_mean_goal_list_len()
